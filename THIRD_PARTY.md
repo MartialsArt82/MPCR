@@ -4,7 +4,7 @@ Die [MIT-Lizenz](LICENSE) gilt für den eigenen Quellcode, die Build-Skripte und
 
 | Bestandteil | Verwendung | Lizenz und Herkunft |
 | --- | --- | --- |
-| [Barlow](https://github.com/jpt/barlow), Regular und SemiBold | Android und Linux | SIL Open Font License 1.1 mit [vollständigem Lizenztext und Copyright](common/assets/Barlow-OFL.txt). Die TTF-Dateien stammen aus dem [Google-Fonts-Repository](https://github.com/google/fonts/tree/main/ofl/barlow). |
+| [Barlow](https://github.com/jpt/barlow), Regular und SemiBold | Android und Linux | SIL Open Font License 1.1 mit [vollständigem Lizenztext und Copyright](common/assets/Barlow-OFL.txt). Die TTF-Dateien stammen aus dem [Google-Fonts-Repository](https://github.com/google/fonts/tree/b46ed7e334ae7aaf3c6b9c446e087d57de39ff7d/ofl/barlow). |
 | [FlatLaf 3.6.2](https://github.com/JFormDesigner/FlatLaf/tree/3.6.2) | Linux-Oberfläche, einschließlich der im JAR enthaltenen nativen Bibliotheken | Apache License 2.0. Das [unveränderte Maven-Artefakt](https://repo.maven.apache.org/maven2/com/formdev/flatlaf/3.6.2/flatlaf-3.6.2.jar) enthält die ursprünglichen Lizenzhinweise. Eine Kopie des [Lizenztexts](licenses/FlatLaf-Apache-2.0.txt) liegt bei. |
 
 ## Eigenständige Implementierung

@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -145,7 +146,13 @@ public final class ViewerActivity extends Activity {
         fields.addView(login);
         address = field(login, "MPC-Adresse", "192.168.1.50",
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI, EditorInfo.IME_ACTION_NEXT);
-        address.setText(getPreferences(MODE_PRIVATE).getString("address", ""));
+        address.setSaveEnabled(false);
+        SharedPreferences preferences = getPreferences(MODE_PRIVATE);
+        if (preferences.getBoolean("rememberAddress", false)) {
+            address.setText(preferences.getString("address", ""));
+        } else if (preferences.contains("address")) {
+            preferences.edit().remove("address").apply();
+        }
         password = field(login, "Remote-Screen-Passwort", null,
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, EditorInfo.IME_ACTION_DONE);
         password.setSaveEnabled(false);
@@ -263,13 +270,20 @@ public final class ViewerActivity extends Activity {
     }
 
     private void openSettings() {
-        boolean showKoFi = getPreferences(MODE_PRIVATE).getBoolean("showKoFi", true);
+        SharedPreferences preferences = getPreferences(MODE_PRIVATE);
         new AlertDialog.Builder(this)
                 .setTitle("Einstellungen")
-                .setMultiChoiceItems(new String[] {"Ko-fi neben dem Status anzeigen"},
-                        new boolean[] {showKoFi}, (dialog, item, checked) -> {
-                            getPreferences(MODE_PRIVATE).edit().putBoolean("showKoFi", checked).apply();
-                            updateKoFiVisibility();
+                .setMultiChoiceItems(new String[] {"Support-Schaltfläche anzeigen", "MPC-Adresse merken"},
+                        new boolean[] {preferences.getBoolean("showKoFi", true),
+                                preferences.getBoolean("rememberAddress", false)}, (dialog, item, checked) -> {
+                            if (item == 0) {
+                                preferences.edit().putBoolean("showKoFi", checked).apply();
+                                updateKoFiVisibility();
+                            } else {
+                                SharedPreferences.Editor editor = preferences.edit().putBoolean("rememberAddress", checked);
+                                if (!checked) editor.remove("address");
+                                editor.apply();
+                            }
                         })
                 .setNeutralButton("Ko-fi öffnen", (dialog, which) -> openKoFi())
                 .setNegativeButton("Datenschutz", (dialog, which) -> showPrivacy())
@@ -283,7 +297,8 @@ public final class ViewerActivity extends Activity {
                     .setTitle("Datenschutz")
                     .setMessage(input.useDelimiter("\\A").next())
                     .setNeutralButton("Adresse vergessen", (dialog, which) -> {
-                        getPreferences(MODE_PRIVATE).edit().remove("address").apply();
+                        getPreferences(MODE_PRIVATE).edit().remove("address")
+                                .putBoolean("rememberAddress", false).apply();
                         if (session == null) address.setText("");
                     })
                     .setNegativeButton("Impressum", (dialog, which) ->
@@ -336,7 +351,10 @@ public final class ViewerActivity extends Activity {
         }
         InputMethodManager keyboard = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
         keyboard.hideSoftInputFromWindow(password.getWindowToken(), 0);
-        getPreferences(MODE_PRIVATE).edit().putString("address", address.getText().toString().trim()).apply();
+        SharedPreferences preferences = getPreferences(MODE_PRIVATE);
+        if (preferences.getBoolean("rememberAddress", false)) {
+            preferences.edit().putString("address", address.getText().toString().trim()).apply();
+        }
         ConnectionListener listener = new ConnectionListener();
         session = new RemoteSession(endpoint.host, endpoint.port, listener,
                 ViewerActivity::decodeJpeg, new PcmPlayer(ViewerActivity::openAudio));
