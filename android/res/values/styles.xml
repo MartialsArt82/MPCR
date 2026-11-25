@@ -1,0 +1,7 @@
+<resources>
+    <style name="ViewerTheme" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">@font/barlow_regular</item>
+        <item name="android:colorAccent">#ff5962</item>
+        <item name="android:windowBackground">#19191e</item>
+    </style>
+</resources>

@@ -1,0 +1,40 @@
+#!/usr/bin/env sh
+set -eu
+app_dir=$(dirname -- "$(readlink -f -- "$0")")
+
+find_java() {
+    default_java=$(command -v java || true)
+    for candidate in "$default_java" /usr/lib/jvm/*/bin/java; do
+        [ -x "$candidate" ] || continue
+        runtime=$(dirname -- "$(dirname -- "$(readlink -f -- "$candidate")")")
+        for library in "$runtime"/lib/libawt_xawt.so "$runtime"/lib/*/libawt_xawt.so; do
+            if [ -r "$library" ]; then
+                printf '%s\n' "$candidate"
+                return
+            fi
+        done
+    done
+    # Let Java report the exact error if a nonstandard runtime is on PATH.
+    if [ -n "$default_java" ]; then
+        printf '%s\n' "$default_java"
+        return
+    fi
+    printf '%s\n' 'Java fehlt. Installiere eine Java-Laufzeit mit Desktop-Unterstützung, z. B. OpenJDK.' >&2
+    return 1
+}
+
+if [ "${1:-}" = --desktop ]; then
+    shift
+    umask 077
+    state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/mpc-remote-screen"
+    if mkdir -p -- "$state_dir"; then
+        exec >"$state_dir/startup.log" 2>&1
+    fi
+fi
+
+java_bin=$(find_java)
+if [ "${1:-}" = --diagnose ]; then
+    printf 'Java: %s\nDISPLAY: %s\nWAYLAND_DISPLAY: %s\n' \
+        "$(readlink -f -- "$java_bin")" "${DISPLAY:-nicht gesetzt}" "${WAYLAND_DISPLAY:-nicht gesetzt}"
+fi
+exec "$java_bin" -jar "$app_dir/mpc-remote-screen-linux.jar" "$@"
