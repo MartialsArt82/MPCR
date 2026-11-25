@@ -286,6 +286,8 @@ public final class ViewerActivity extends Activity {
                         getPreferences(MODE_PRIVATE).edit().remove("address").apply();
                         if (session == null) address.setText("");
                     })
+                    .setNegativeButton("Impressum", (dialog, which) ->
+                            openBrowser("https://www.paulweigl.de/impressum-1042906.html"))
                     .setPositiveButton("Fertig", null)
                     .show();
         } catch (IOException e) {
@@ -294,10 +296,14 @@ public final class ViewerActivity extends Activity {
     }
 
     private void openKoFi() {
+        openBrowser("https://ko-fi.com/paulweigl/tip");
+    }
+
+    private void openBrowser(String address) {
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://ko-fi.com/paulweigl/tip")));
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(address)));
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "Kein Browser zum Öffnen von Ko-fi gefunden.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Kein Browser zum Öffnen der Seite gefunden.", Toast.LENGTH_LONG).show();
         }
     }
 

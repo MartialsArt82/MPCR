@@ -68,6 +68,7 @@ public final class LinuxViewer extends JFrame {
     private static final Color INPUT_BACKGROUND = new Color(0x26262e);
     private static final Color INPUT_BORDER = new Color(0x575761);
     private static final URI KO_FI = URI.create("https://ko-fi.com/paulweigl/tip");
+    private static final URI IMPRINT = URI.create("https://www.paulweigl.de/impressum-1042906.html");
 
     private final JTextField address = new JTextField(16);
     private final JPasswordField password = new JPasswordField(13);
@@ -266,21 +267,27 @@ public final class LinuxViewer extends JFrame {
             text.setLineWrap(true);
             text.setWrapStyleWord(true);
             text.setCaretPosition(0);
-            JOptionPane.showMessageDialog(this, new JScrollPane(text), "Datenschutz",
-                    JOptionPane.PLAIN_MESSAGE);
+            Object[] buttons = {"Schließen", "Impressum"};
+            int selection = JOptionPane.showOptionDialog(this, new JScrollPane(text), "Datenschutz",
+                    JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, buttons, buttons[0]);
+            if (selection == 1) openBrowser(IMPRINT);
         }
     }
 
     private void openKoFi() {
+        openBrowser(KO_FI);
+    }
+
+    private void openBrowser(URI address) {
         try {
             if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                Desktop.getDesktop().browse(KO_FI);
+                Desktop.getDesktop().browse(address);
             } else {
-                new ProcessBuilder("xdg-open", KO_FI.toString()).start();
+                new ProcessBuilder("xdg-open", address.toString()).start();
             }
         } catch (IOException | UnsupportedOperationException error) {
-            JOptionPane.showMessageDialog(this, "Der Browser konnte nicht geöffnet werden.\n" + KO_FI,
-                    "Ko-fi", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Der Browser konnte nicht geöffnet werden.\n" + address,
+                    "Externer Link", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
