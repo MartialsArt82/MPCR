@@ -1,4 +1,4 @@
-# Privacy Notice for MPCR Viewer
+# Privacy Notice for MPCR-Screen
 
 Last updated November 25, 2026. This notice describes MPCR from version 1.5 onward and distinguishes operating the viewer from using external services.
 
@@ -14,7 +14,7 @@ The project maintainer is Paul Weigl. Name, postal address, and contact details 
 | Remote Screen password | The app processes the password for authentication and sends the verification data specified by the protocol to the MPC. | Processed in memory. The app does not store the password persistently or in the diagnostic log. |
 | Video, optional audio, and remote control | The MPC sends video data and, when audio is enabled, audio data. When control is enabled, mouse or touch events are sent to the MPC. | The app processes this data in memory for display, playback, and input. It does not create recordings. |
 | Support button visibility | Android remembers your chosen visibility setting locally. | Until changed or until local app data is deleted. |
-| Diagnostic log on Linux menu launch | Linux may locally log startup errors along with information about the Java and display environment. | The log is located at `${XDG_STATE_HOME:-$HOME/.local/state}/mpc-remote-screen/startup.log` and is overwritten on the next menu launch. You can also delete the file manually. |
+| Diagnostic log on Linux menu launch | Linux may locally log startup errors along with information about the Java and display environment. | The log is located at `${XDG_STATE_HOME:-$HOME/.local/state}/mpcr-screen/startup.log` and is overwritten on the next menu launch. You can also delete the file manually. |
 
 MPCR uses app data solely for operating the viewer as described above. The app never uses it for newsletters, advertising, or other purposes. There is no newsletter signup in the app. The viewer does not operate a project server and does not send telemetry, advertising data, or crash reports to the project maintainer. Remote Screen authenticates the login. Video, audio, and control traffic is unencrypted. Use MPCR on a trusted network.
 

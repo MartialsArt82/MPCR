@@ -17,12 +17,15 @@ import java.awt.HeadlessException;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.Toolkit;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Line2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
@@ -56,6 +59,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
+import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.plaf.FontUIResource;
 import com.formdev.flatlaf.FlatDarkLaf;
@@ -64,6 +68,10 @@ public final class LinuxViewer extends JFrame {
     private static final Color BACKGROUND = new Color(0x19191e);
     private static final Color PAPER = new Color(0xf3f1f3);
     private static final Color ACCENT = new Color(0xff5962);
+    private static final int MARK_LINGER_MS = 350;
+    private static final Color MARK_FILL = new Color((ACCENT.getRGB() & 0xffffff) | 0x2d000000, true);
+    private static final Color MARK_HATCH = new Color((ACCENT.getRGB() & 0xffffff) | 0x5a000000, true);
+    private static final Color MARK_OUTLINE = new Color((ACCENT.getRGB() & 0xffffff) | 0xd2000000, true);
     private static final Color BLACK = new Color(0x101014);
     private static final Color INPUT_BACKGROUND = new Color(0x26262e);
     private static final Color INPUT_BORDER = new Color(0x575761);
@@ -75,6 +83,7 @@ public final class LinuxViewer extends JFrame {
     private final JLabel status = new JLabel("Enter MPC address and Remote Screen password.");
     private final JButton connect = new JButton("Connect");
     private final JCheckBox control = new JCheckBox("Control");
+    private final JCheckBox inputMarks = new JCheckBox("Marks", true);
     private final JCheckBox audio = new JCheckBox("Audio");
     private final JButton koFiButton = new JButton();
     private final JButton windowButton = new JButton("Window");
@@ -91,11 +100,11 @@ public final class LinuxViewer extends JFrame {
 
     public static void main(String[] args) {
         if (args.length > 1 || (args.length == 1 && "--help".equals(args[0]))) {
-            System.out.println("Usage: mpc-remote-screen [MPC-address[:port] | --diagnose | --version]");
+            System.out.println("Usage: mpcr-screen [MPC-address[:port] | --diagnose | --version]");
             return;
         }
         if (args.length == 1 && "--version".equals(args[0])) {
-            System.out.println("MPCR Viewer " + LinuxViewer.class.getPackage().getImplementationVersion());
+            System.out.println("MPCR-Screen " + LinuxViewer.class.getPackage().getImplementationVersion());
             return;
         }
 
@@ -161,8 +170,8 @@ public final class LinuxViewer extends JFrame {
     }
 
     private LinuxViewer(String host) {
-        super("MPCR · Unofficial Viewer");
-        setIconImage(new ImageIcon(getClass().getResource("/assets/mpc-remote-screen.png")).getImage());
+        super("MPCR-Screen · Unofficial Viewer");
+        setIconImage(new ImageIcon(getClass().getResource("/assets/mpcr-screen.png")).getImage());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         root.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
         root.setBackground(BACKGROUND);
@@ -182,7 +191,11 @@ public final class LinuxViewer extends JFrame {
         koFiButton.addActionListener(e -> openKoFi());
         JPanel options = new JPanel(new FlowLayout(FlowLayout.TRAILING, 8, 0));
         options.setOpaque(false);
-        for (JCheckBox box : new JCheckBox[] {control, audio}) {
+        inputMarks.setToolTipText("Show input marks");
+        inputMarks.addActionListener(e -> {
+            if (!inputMarks.isSelected()) display.clearMarker();
+        });
+        for (JCheckBox box : new JCheckBox[] {control, inputMarks, audio}) {
             box.setOpaque(false);
             box.setForeground(PAPER);
             options.add(box);
@@ -445,6 +458,10 @@ public final class LinuxViewer extends JFrame {
     private final class Display extends JPanel {
         private final Rectangle destination = new Rectangle();
         private final AtomicBoolean paintScheduled = new AtomicBoolean();
+        private final Timer hideMarker = new Timer(MARK_LINGER_MS, e -> clearMarker());
+        private final Ellipse2D.Float markerCircle = new Ellipse2D.Float();
+        private final Line2D.Float markerStripe = new Line2D.Float();
+        private boolean markerVisible;
         private ScreenBuffer drawn;
         private BufferedImage bitmap;
         private boolean pressed;
@@ -454,6 +471,7 @@ public final class LinuxViewer extends JFrame {
         Display() {
             setBackground(BLACK);
             setLayout(null);
+            hideMarker.setRepeats(false);
             getAccessibleContext().setAccessibleName("MPC Screen");
             MouseAdapter pointer = new MouseAdapter() {
                 @Override public void mousePressed(MouseEvent e) {
@@ -518,21 +536,61 @@ public final class LinuxViewer extends JFrame {
             Graphics2D canvas = (Graphics2D) g.create();
             canvas.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             canvas.drawImage(bitmap, destination.x, destination.y, width, height, null);
+            if (markerVisible) drawMarker(canvas, frame);
             canvas.dispose();
+        }
+
+        private void drawMarker(Graphics2D canvas, ScreenBuffer frame) {
+            float x = destination.x + (lastX + .5f) * destination.width / frame.width;
+            float y = destination.y + (lastY + .5f) * destination.height / frame.height;
+            float radius = 10;
+            markerCircle.setFrame(x - radius, y - radius, radius * 2, radius * 2);
+            canvas.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            canvas.clip(destination);
+            canvas.setColor(MARK_FILL);
+            canvas.fill(markerCircle);
+
+            Shape imageClip = canvas.getClip();
+            canvas.clip(markerCircle);
+            canvas.setColor(MARK_HATCH);
+            for (int stripe = -2; stripe <= 2; stripe++) {
+                float shift = stripe * radius / 2;
+                markerStripe.setLine(x - radius + shift, y + radius, x + radius + shift, y - radius);
+                canvas.draw(markerStripe);
+            }
+            canvas.setClip(imageClip);
+            canvas.setColor(MARK_OUTLINE);
+            canvas.draw(markerCircle);
         }
 
         private void sendPointer(int phase, MouseEvent e) {
             if (session == null || drawn == null || destination.isEmpty()) return;
             int x = Math.max(0, Math.min(drawn.width - 1, (e.getX() - destination.x) * drawn.width / destination.width));
             int y = Math.max(0, Math.min(drawn.height - 1, (e.getY() - destination.y) * drawn.height / destination.height));
-            if (phase != 1 || x != lastX || y != lastY) session.pointer(phase, x, y);
+            if (phase == 1 && x == lastX && y == lastY) return;
+            session.pointer(phase, x, y);
             lastX = x;
             lastY = y;
+            if (inputMarks.isSelected()) {
+                if (phase == 0) hideMarker.stop();
+                if (phase == 2) hideMarker.restart();
+                markerVisible = true;
+                repaint();
+            }
         }
 
         void cancelGesture() {
             if (pressed && session != null) session.releaseInput();
             pressed = false;
+            clearMarker();
+        }
+
+        void clearMarker() {
+            hideMarker.stop();
+            if (markerVisible) {
+                markerVisible = false;
+                repaint();
+            }
         }
     }
 }

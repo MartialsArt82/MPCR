@@ -11,6 +11,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -33,6 +34,7 @@ import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -53,6 +55,7 @@ public final class ViewerActivity extends Activity {
     private static final int BLACK = 0xff101014;
     private static final int INPUT_BACKGROUND = 0xff26262e;
     private static final int INPUT_BORDER = 0xff575761;
+    private static final int MARK_LINGER_MS = 350;
     private static final int MUTED = 0xffc2bfc6;
 
     private LinearLayout content;
@@ -66,6 +69,7 @@ public final class ViewerActivity extends Activity {
     private Button fullscreenButton;
     private ImageButton koFiButton;
     private ToggleButton control;
+    private CheckBox inputMarks;
     private ToggleButton audio;
     private Display display;
     private volatile RemoteSession session;
@@ -99,7 +103,7 @@ public final class ViewerActivity extends Activity {
         content.addView(header, new LinearLayout.LayoutParams(-1, -2));
         status = new TextView(this);
         status.setTextColor(PAPER);
-        status.setText("MPCR · Unofficial Viewer");
+        status.setText("MPCR-Screen · Unofficial Viewer");
         status.setTextSize(17);
         status.setTypeface(getResources().getFont(R.font.barlow_semibold));
         status.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
@@ -168,6 +172,16 @@ public final class ViewerActivity extends Activity {
         connect.setTextColor(BLACK);
         actions.addView(connect, new LinearLayout.LayoutParams(0, -2, 1.35f));
         control = toggle(actions, "Control");
+        inputMarks = new CheckBox(this);
+        inputMarks.setText("Marks");
+        inputMarks.setTextSize(13);
+        inputMarks.setMinHeight(dp(48));
+        inputMarks.setTooltipText("Show input marks");
+        inputMarks.setChecked(saved == null || saved.getBoolean("inputMarks", true));
+        inputMarks.setOnCheckedChangeListener((button, on) -> {
+            if (!on) display.clearMarker();
+        });
+        actions.addView(inputMarks, new LinearLayout.LayoutParams(-2, -2));
         audio = toggle(actions, "Audio");
         fullscreenButton = new Button(this);
         fullscreenButton.setAllCaps(false);
@@ -228,6 +242,7 @@ public final class ViewerActivity extends Activity {
 
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putBoolean("fullscreen", fullscreen);
+        state.putBoolean("inputMarks", inputMarks.isChecked());
         super.onSaveInstanceState(state);
     }
 
@@ -486,6 +501,10 @@ public final class ViewerActivity extends Activity {
     private final class Display extends View {
         private final RectF destination = new RectF();
         private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+        private final Paint markerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path markerCircle = new Path();
+        private final Runnable hideMarker = this::clearMarker;
+        private boolean markerVisible;
         private final AtomicBoolean invalidatePending = new AtomicBoolean();
         private ScreenBuffer drawn;
         private Bitmap bitmap;
@@ -528,6 +547,37 @@ public final class ViewerActivity extends Activity {
             float top = (getHeight() - frame.height * scale) / 2;
             destination.set(left, top, getWidth() - left, getHeight() - top);
             canvas.drawBitmap(bitmap, null, destination, paint);
+            if (markerVisible) drawMarker(canvas, frame);
+        }
+
+        private void drawMarker(Canvas canvas, ScreenBuffer frame) {
+            float x = destination.left + (lastX + .5f) * destination.width() / frame.width;
+            float y = destination.top + (lastY + .5f) * destination.height() / frame.height;
+            float radius = dp(10);
+            int clip = canvas.save();
+            canvas.clipRect(destination);
+            markerPaint.setColor(ACCENT);
+            markerPaint.setStyle(Paint.Style.FILL);
+            markerPaint.setAlpha(45);
+            canvas.drawCircle(x, y, radius, markerPaint);
+
+            int hatchClip = canvas.save();
+            markerCircle.reset();
+            markerCircle.addCircle(x, y, radius, Path.Direction.CW);
+            canvas.clipPath(markerCircle);
+            markerPaint.setAlpha(90);
+            markerPaint.setStrokeWidth(dp(1));
+            for (int stripe = -2; stripe <= 2; stripe++) {
+                float shift = stripe * radius / 2;
+                canvas.drawLine(x - radius + shift, y + radius, x + radius + shift, y - radius, markerPaint);
+            }
+            canvas.restoreToCount(hatchClip);
+
+            markerPaint.setStyle(Paint.Style.STROKE);
+            markerPaint.setAlpha(210);
+            markerPaint.setStrokeWidth(dp(1));
+            canvas.drawCircle(x, y, radius - dp(1) / 2f, markerPaint);
+            canvas.restoreToCount(clip);
         }
 
         @Override public boolean onTouchEvent(MotionEvent event) {
@@ -563,14 +613,30 @@ public final class ViewerActivity extends Activity {
                     (int) ((x - destination.left) * drawn.width / destination.width())));
             int remoteY = Math.max(0, Math.min(drawn.height - 1,
                     (int) ((y - destination.top) * drawn.height / destination.height())));
-            if (phase != 1 || remoteX != lastX || remoteY != lastY) session.pointer(phase, remoteX, remoteY);
+            if (phase == 1 && remoteX == lastX && remoteY == lastY) return;
+            session.pointer(phase, remoteX, remoteY);
             lastX = remoteX;
             lastY = remoteY;
+            if (inputMarks.isChecked()) {
+                if (phase == 0) removeCallbacks(hideMarker);
+                if (phase == 2) postDelayed(hideMarker, MARK_LINGER_MS);
+                markerVisible = true;
+                postInvalidateOnAnimation();
+            }
         }
 
         void cancelGesture() {
             if (contact >= 0 && session != null) session.releaseInput();
             contact = -1;
+            clearMarker();
+        }
+
+        void clearMarker() {
+            removeCallbacks(hideMarker);
+            if (markerVisible) {
+                markerVisible = false;
+                postInvalidateOnAnimation();
+            }
         }
 
         @Override public boolean performClick() {

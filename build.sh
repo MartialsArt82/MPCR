@@ -19,26 +19,26 @@ compile() {
 build_linux() {
     compile linux -classpath linux/lib/flatlaf.jar
     printf 'Main-Class: mpc.remote.LinuxViewer\nClass-Path: flatlaf.jar\nImplementation-Version: %s\n' \
-        "$(awk '$1 == "Version:" {print $2}' linux/mpc-remote-screen.spec)" > build/linux/MANIFEST.MF
-    jar cfm dist/mpc-remote-screen-linux.jar build/linux/MANIFEST.MF -C build/linux/classes . -C common assets
+        "$(awk '$1 == "Version:" {print $2}' linux/mpcr-screen.spec)" > build/linux/MANIFEST.MF
+    jar cfm dist/mpcr-screen-linux.jar build/linux/MANIFEST.MF -C build/linux/classes . -C common assets
     cp linux/lib/flatlaf.jar dist/
-    local portable=build/linux/mpc-remote-screen-linux
+    local portable=build/linux/mpcr-screen-linux
     mkdir -p "$portable"
-    cp dist/mpc-remote-screen-linux.jar dist/flatlaf.jar linux/mpc-remote-screen \
-        README.md LICENSE THIRD_PARTY.md PRIVACY.md IMPRESSUM.md common/assets/mpc-remote-screen.png \
+    cp dist/mpcr-screen-linux.jar dist/flatlaf.jar linux/mpcr-screen \
+        README.md LICENSE THIRD_PARTY.md PRIVACY.md IMPRESSUM.md common/assets/mpcr-screen.png \
         common/assets/Barlow-OFL.txt licenses/FlatLaf-Apache-2.0.txt "$portable/"
-    tar czf dist/mpc-remote-screen-linux.tar.gz -C build/linux mpc-remote-screen-linux
+    tar czf dist/mpcr-screen-linux.tar.gz -C build/linux mpcr-screen-linux
 }
 
 build_rpm() {
     build_linux
     local topdir="$PWD/build/rpm"
     local package
-    package=$(rpmspec -q --qf '%{name}-%{version}-%{release}.%{arch}.rpm\n' linux/mpc-remote-screen.spec)
+    package=$(rpmspec -q --qf '%{name}-%{version}-%{release}.%{arch}.rpm\n' linux/mpcr-screen.spec)
     mkdir -p "$topdir/SOURCES"
-    cp dist/mpc-remote-screen-linux.tar.gz "$topdir/SOURCES/"
+    cp dist/mpcr-screen-linux.tar.gz "$topdir/SOURCES/"
     rpmbuild -bb --nodeps --define "_topdir $topdir" \
-        --define "_tmppath ${TMPDIR:-/tmp}" linux/mpc-remote-screen.spec
+        --define "_tmppath ${TMPDIR:-/tmp}" linux/mpcr-screen.spec
     cp "$topdir/RPMS/noarch/$package" dist/
 }
 
@@ -54,7 +54,7 @@ build_android() {
     rm -rf "$resources"
     cp -R android/res "$resources"
     mkdir -p "$resources/drawable-nodpi" "$resources/font" build/android/assets
-    cp common/assets/mpc-remote-screen.png "$resources/drawable-nodpi/mpc_viewer.png"
+    cp common/assets/mpcr-screen.png "$resources/drawable-nodpi/mpc_viewer.png"
     cp common/assets/support.png "$resources/drawable-nodpi/support.png"
     cp common/assets/Barlow-Regular.ttf "$resources/font/barlow_regular.ttf"
     cp common/assets/Barlow-SemiBold.ttf "$resources/font/barlow_semibold.ttf"
@@ -70,8 +70,8 @@ build_android() {
     (cd build/android && zip -q -0 unsigned.apk classes.dex)
     "$bt/zipalign" -f 4 build/android/unsigned.apk build/android/aligned.apk
     "$bt/apksigner" sign --ks "$APK_KEYSTORE" --ks-key-alias "$APK_KEY_ALIAS" \
-        --out dist/mpc-remote-screen-android.apk build/android/aligned.apk
-    "$bt/apksigner" verify dist/mpc-remote-screen-android.apk
+        --out dist/mpcr-screen-android.apk build/android/aligned.apk
+    "$bt/apksigner" verify dist/mpcr-screen-android.apk
 }
 
 case "${1:-}" in

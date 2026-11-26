@@ -1,4 +1,4 @@
-# Building MPCR Viewer from Source
+# Building MPCR-Screen from Source
 
 Run these commands in a Linux shell from the repository root directory. The Android APK and the Linux application share the same Java protocol implementation under `common/src`. The user interfaces are located in `android/src` and `linux/src`. Included third-party components and their sources are listed in [Origin and Licenses](THIRD_PARTY.md).
 
@@ -16,7 +16,7 @@ Run these commands in a Linux shell from the repository root directory. The Andr
 ./build.sh rpm
 ```
 
-Afterwards, the portable archive, JAR, and RPM are located in `dist/`. To launch the portable build, extract the archive and run `./mpc-remote-screen` inside the extracted directory. A graphical Java runtime and X11 or XWayland must be installed.
+Afterwards, the portable archive, JAR, and RPM are located in `dist/`. To launch the portable build, extract the archive and run `./mpcr-screen` inside the extracted directory. A graphical Java runtime and X11 or XWayland must be installed.
 
 ## Android
 
@@ -34,7 +34,7 @@ export APK_KEY_ALIAS=mpcr
 ./build.sh android
 ```
 
-The signed build is output to `dist/mpc-remote-screen-android.apk`. The signing tool will prompt for the password. The private release key is not part of the source code. A locally signed APK can only update an already installed release APK if the same Android signing key is used.
+The signed build is output to `dist/mpcr-screen-android.apk`. The signing tool will prompt for the password. The private release key is not part of the source code. A locally signed APK can only update an already installed release APK if the same Android signing key is used.
 
 ## Tests
 
@@ -49,6 +49,6 @@ The tests use a local MPC protocol simulator. Among other things, they verify pa
 The SVG source files for the monitor and cup, along with their corresponding PNGs, are located in `common/assets/`. The builds use the checked-in PNGs. After making changes, you can re-export them with Inkscape:
 
 ```sh
-inkscape common/assets/mpc-remote-screen.svg --export-type=png --export-filename=common/assets/mpc-remote-screen.png
+inkscape common/assets/mpcr-screen.svg --export-type=png --export-filename=common/assets/mpcr-screen.png
 inkscape common/assets/support.svg --export-type=png --export-filename=common/assets/support.png
 ```

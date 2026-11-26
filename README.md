@@ -1,8 +1,10 @@
-# MPCR Viewer
+# MPCR-Screen
 
 **Unofficial open-source viewer for the Remote Screen feature of compatible Akai MPC devices.** MPCR is an independent project and is neither published by nor affiliated with Akai Professional or inMusic.
 
 The viewer displays the MPC screen on Android or Linux. Remote control and audio can be enabled if allowed on the MPC.
+
+Enable **Control** and check **Marks** to highlight clicks, taps and drags made on the viewer. The marker follows the input and briefly stays visible after release. The documented Remote Screen protocol does not report touches on the MPC itself or clicks from a mouse connected directly to it.
 
 ## Download and Connection
 
@@ -20,4 +22,4 @@ The protocol transmits video, audio, and control data without encryption. For mo
 - [MIT License for project-owned components](LICENSE) and [Origin and third-party licenses](THIRD_PARTY.md)
 - [Privacy Notice](PRIVACY.md) and [Legal Notice](IMPRESSUM.md)
 
-The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpc-remote-screen-1.6-1.noarch.rpm`. After extracting the portable archive, launch it with `./mpc-remote-screen`. If you encounter startup issues on Linux, `mpc-remote-screen --diagnose` displays information about the Java runtime and display.
+The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpcr-screen-1.7-1.noarch.rpm`. After extracting the portable archive, launch it with `./mpcr-screen`. If you encounter startup issues on Linux, `mpcr-screen --diagnose` displays information about the Java runtime and display.
