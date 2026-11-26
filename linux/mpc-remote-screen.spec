@@ -1,5 +1,5 @@
 Name:           mpc-remote-screen
-Version:        1.5
+Version:        1.6
 Release:        1
 Summary:        Unofficial remote viewer for compatible MPC devices
 License:        MIT AND Apache-2.0 AND OFL-1.1

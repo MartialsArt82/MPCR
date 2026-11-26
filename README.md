@@ -20,4 +20,4 @@ The protocol transmits video, audio, and control data without encryption. For mo
 - [MIT License for project-owned components](LICENSE) and [Origin and third-party licenses](THIRD_PARTY.md)
 - [Privacy Notice](PRIVACY.md) and [Legal Notice](IMPRESSUM.md)
 
-The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpc-remote-screen-1.5-1.noarch.rpm`. After extracting the portable archive, launch it with `./mpc-remote-screen`. If you encounter startup issues on Linux, `mpc-remote-screen --diagnose` displays information about the Java runtime and display.
+The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpc-remote-screen-1.6-1.noarch.rpm`. After extracting the portable archive, launch it with `./mpc-remote-screen`. If you encounter startup issues on Linux, `mpc-remote-screen --diagnose` displays information about the Java runtime and display.
