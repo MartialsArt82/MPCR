@@ -69,6 +69,7 @@ public final class LinuxViewer extends JFrame {
     private static final Color PAPER = new Color(0xf3f1f3);
     private static final Color ACCENT = new Color(0xff5962);
     private static final int MARK_LINGER_MS = 350;
+    private static final int MARK_PREVIEW_MS = 1200;
     private static final Color MARK_FILL = new Color((ACCENT.getRGB() & 0xffffff) | 0x2d000000, true);
     private static final Color MARK_HATCH = new Color((ACCENT.getRGB() & 0xffffff) | 0x5a000000, true);
     private static final Color MARK_OUTLINE = new Color((ACCENT.getRGB() & 0xffffff) | 0xd2000000, true);
@@ -83,7 +84,7 @@ public final class LinuxViewer extends JFrame {
     private final JLabel status = new JLabel("Enter MPC address and Remote Screen password.");
     private final JButton connect = new JButton("Connect");
     private final JCheckBox control = new JCheckBox("Control");
-    private final JCheckBox inputMarks = new JCheckBox("Marks", true);
+    private final JCheckBox inputMarks = new JCheckBox("Marks");
     private final JCheckBox audio = new JCheckBox("Audio");
     private final JButton koFiButton = new JButton();
     private final JButton windowButton = new JButton("Window");
@@ -191,9 +192,10 @@ public final class LinuxViewer extends JFrame {
         koFiButton.addActionListener(e -> openKoFi());
         JPanel options = new JPanel(new FlowLayout(FlowLayout.TRAILING, 8, 0));
         options.setOpaque(false);
-        inputMarks.setToolTipText("Show input marks");
+        inputMarks.setToolTipText("Mark clicks and taps made in this viewer");
         inputMarks.addActionListener(e -> {
-            if (!inputMarks.isSelected()) display.clearMarker();
+            if (inputMarks.isSelected()) display.previewMarker();
+            else display.clearMarker();
         });
         for (JCheckBox box : new JCheckBox[] {control, inputMarks, audio}) {
             box.setOpaque(false);
@@ -462,6 +464,7 @@ public final class LinuxViewer extends JFrame {
         private final Ellipse2D.Float markerCircle = new Ellipse2D.Float();
         private final Line2D.Float markerStripe = new Line2D.Float();
         private boolean markerVisible;
+        private boolean markerPreview;
         private ScreenBuffer drawn;
         private BufferedImage bitmap;
         private boolean pressed;
@@ -520,6 +523,11 @@ public final class LinuxViewer extends JFrame {
                 bitmap = null;
                 drawn = null;
                 destination.setBounds(0, 0, 0, 0);
+                if (markerPreview) {
+                    Graphics2D canvas = (Graphics2D) g.create();
+                    drawMarker(canvas, getWidth() / 2f, getHeight() / 2f);
+                    canvas.dispose();
+                }
                 return;
             }
             boolean changedScreen = frame != drawn;
@@ -536,17 +544,21 @@ public final class LinuxViewer extends JFrame {
             Graphics2D canvas = (Graphics2D) g.create();
             canvas.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
             canvas.drawImage(bitmap, destination.x, destination.y, width, height, null);
-            if (markerVisible) drawMarker(canvas, frame);
+            if (markerPreview) {
+                drawMarker(canvas, (float) destination.getCenterX(), (float) destination.getCenterY());
+            } else if (markerVisible) {
+                float x = destination.x + (lastX + .5f) * destination.width / frame.width;
+                float y = destination.y + (lastY + .5f) * destination.height / frame.height;
+                drawMarker(canvas, x, y);
+            }
             canvas.dispose();
         }
 
-        private void drawMarker(Graphics2D canvas, ScreenBuffer frame) {
-            float x = destination.x + (lastX + .5f) * destination.width / frame.width;
-            float y = destination.y + (lastY + .5f) * destination.height / frame.height;
+        private void drawMarker(Graphics2D canvas, float x, float y) {
             float radius = 10;
             markerCircle.setFrame(x - radius, y - radius, radius * 2, radius * 2);
             canvas.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            canvas.clip(destination);
+            if (!destination.isEmpty()) canvas.clip(destination);
             canvas.setColor(MARK_FILL);
             canvas.fill(markerCircle);
 
@@ -572,8 +584,12 @@ public final class LinuxViewer extends JFrame {
             lastX = x;
             lastY = y;
             if (inputMarks.isSelected()) {
-                if (phase == 0) hideMarker.stop();
-                if (phase == 2) hideMarker.restart();
+                if (phase == 0 || markerPreview) hideMarker.stop();
+                markerPreview = false;
+                if (phase == 2) {
+                    hideMarker.setInitialDelay(MARK_LINGER_MS);
+                    hideMarker.restart();
+                }
                 markerVisible = true;
                 repaint();
             }
@@ -585,8 +601,17 @@ public final class LinuxViewer extends JFrame {
             clearMarker();
         }
 
+        void previewMarker() {
+            markerPreview = true;
+            markerVisible = true;
+            hideMarker.setInitialDelay(MARK_PREVIEW_MS);
+            hideMarker.restart();
+            repaint();
+        }
+
         void clearMarker() {
             hideMarker.stop();
+            markerPreview = false;
             if (markerVisible) {
                 markerVisible = false;
                 repaint();

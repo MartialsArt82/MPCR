@@ -1,5 +1,5 @@
 Name:           mpcr-screen
-Version:        1.7
+Version:        1.7.1
 Release:        1
 Summary:        Unofficial remote viewer for compatible MPC devices
 License:        MIT AND Apache-2.0 AND OFL-1.1

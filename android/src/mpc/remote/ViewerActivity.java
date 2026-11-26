@@ -56,6 +56,7 @@ public final class ViewerActivity extends Activity {
     private static final int INPUT_BACKGROUND = 0xff26262e;
     private static final int INPUT_BORDER = 0xff575761;
     private static final int MARK_LINGER_MS = 350;
+    private static final int MARK_PREVIEW_MS = 1200;
     private static final int MUTED = 0xffc2bfc6;
 
     private LinearLayout content;
@@ -176,10 +177,11 @@ public final class ViewerActivity extends Activity {
         inputMarks.setText("Marks");
         inputMarks.setTextSize(13);
         inputMarks.setMinHeight(dp(48));
-        inputMarks.setTooltipText("Show input marks");
-        inputMarks.setChecked(saved == null || saved.getBoolean("inputMarks", true));
+        inputMarks.setTooltipText("Mark clicks and taps made in this viewer");
+        inputMarks.setChecked(saved != null && saved.getBoolean("inputMarks"));
         inputMarks.setOnCheckedChangeListener((button, on) -> {
-            if (!on) display.clearMarker();
+            if (on) display.previewMarker();
+            else display.clearMarker();
         });
         actions.addView(inputMarks, new LinearLayout.LayoutParams(-2, -2));
         audio = toggle(actions, "Audio");
@@ -505,6 +507,7 @@ public final class ViewerActivity extends Activity {
         private final Path markerCircle = new Path();
         private final Runnable hideMarker = this::clearMarker;
         private boolean markerVisible;
+        private boolean markerPreview;
         private final AtomicBoolean invalidatePending = new AtomicBoolean();
         private ScreenBuffer drawn;
         private Bitmap bitmap;
@@ -534,6 +537,7 @@ public final class ViewerActivity extends Activity {
                 bitmap = null;
                 drawn = null;
                 destination.setEmpty();
+                if (markerPreview) drawMarker(canvas, getWidth() / 2f, getHeight() / 2f);
                 return;
             }
             if (bitmap == null || bitmap.getWidth() != frame.width || bitmap.getHeight() != frame.height) {
@@ -547,15 +551,19 @@ public final class ViewerActivity extends Activity {
             float top = (getHeight() - frame.height * scale) / 2;
             destination.set(left, top, getWidth() - left, getHeight() - top);
             canvas.drawBitmap(bitmap, null, destination, paint);
-            if (markerVisible) drawMarker(canvas, frame);
+            if (markerPreview) {
+                drawMarker(canvas, destination.centerX(), destination.centerY());
+            } else if (markerVisible) {
+                float x = destination.left + (lastX + .5f) * destination.width() / frame.width;
+                float y = destination.top + (lastY + .5f) * destination.height() / frame.height;
+                drawMarker(canvas, x, y);
+            }
         }
 
-        private void drawMarker(Canvas canvas, ScreenBuffer frame) {
-            float x = destination.left + (lastX + .5f) * destination.width() / frame.width;
-            float y = destination.top + (lastY + .5f) * destination.height() / frame.height;
+        private void drawMarker(Canvas canvas, float x, float y) {
             float radius = dp(10);
             int clip = canvas.save();
-            canvas.clipRect(destination);
+            if (!destination.isEmpty()) canvas.clipRect(destination);
             markerPaint.setColor(ACCENT);
             markerPaint.setStyle(Paint.Style.FILL);
             markerPaint.setAlpha(45);
@@ -618,7 +626,8 @@ public final class ViewerActivity extends Activity {
             lastX = remoteX;
             lastY = remoteY;
             if (inputMarks.isChecked()) {
-                if (phase == 0) removeCallbacks(hideMarker);
+                if (phase == 0 || markerPreview) removeCallbacks(hideMarker);
+                markerPreview = false;
                 if (phase == 2) postDelayed(hideMarker, MARK_LINGER_MS);
                 markerVisible = true;
                 postInvalidateOnAnimation();
@@ -631,8 +640,17 @@ public final class ViewerActivity extends Activity {
             clearMarker();
         }
 
+        void previewMarker() {
+            markerPreview = true;
+            markerVisible = true;
+            removeCallbacks(hideMarker);
+            postDelayed(hideMarker, MARK_PREVIEW_MS);
+            postInvalidateOnAnimation();
+        }
+
         void clearMarker() {
             removeCallbacks(hideMarker);
+            markerPreview = false;
             if (markerVisible) {
                 markerVisible = false;
                 postInvalidateOnAnimation();
