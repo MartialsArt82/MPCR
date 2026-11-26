@@ -123,15 +123,15 @@ final class RemoteSession implements AutoCloseable {
 
     private void enqueue(int type, byte[] payload) {
         if (!closed && !outgoing.offer(message(type, payload))) {
-            writerError = "Die Verbindung verarbeitet Nachrichten zu langsam.";
+            writerError = "The connection is processing messages too slowly.";
             close();
         }
     }
 
     private void run(String password) {
-        String reason = "Getrennt";
+        String reason = "Disconnected";
         try {
-            listener.status("Verbindung wird aufgebaut …");
+            listener.status("Connecting …");
             socket.connect(new InetSocketAddress(host, port), 5000);
             socket.setSoTimeout(8000);
             socket.setTcpNoDelay(true);
@@ -147,7 +147,7 @@ final class RemoteSession implements AutoCloseable {
                 while (!closed) {
                     Message item = receive(input);
                     if (!process(item)) {
-                        reason = "Die MPC hat die Verbindung beendet.";
+                        reason = "The MPC closed the connection.";
                         break;
                     }
                 }
@@ -155,16 +155,16 @@ final class RemoteSession implements AutoCloseable {
                 writer.interrupt();
             }
         } catch (SocketTimeoutException e) {
-            reason = "Zeitüberschreitung. Prüfe MPC-Adresse und Remote Screen.";
+            reason = "Connection timed out. Check MPC address and Remote Screen.";
         } catch (EOFException e) {
-            reason = "Die Verbindung zur MPC wurde geschlossen.";
+            reason = "The connection to the MPC was closed.";
         } catch (IOException | GeneralSecurityException | IllegalArgumentException e) {
-            reason = "Verbindung fehlgeschlagen. " + e.getMessage();
+            reason = "Connection failed. " + e.getMessage();
         } finally {
             boolean cancelled = closed;
             close();
             audio.close();
-            listener.ended(writerError != null ? writerError : cancelled ? "Getrennt" : reason);
+            listener.ended(writerError != null ? writerError : cancelled ? "Disconnected" : reason);
         }
     }
 
@@ -206,7 +206,7 @@ final class RemoteSession implements AutoCloseable {
         enqueue(8, new byte[] {0, SCREEN_CODECS});
         if (next.audio && audioEnabled) enqueue(13, audioRequest(true));
         listener.screen(next);
-        listener.status("Verbunden mit " + host);
+        listener.status("Connected to " + host);
     }
 
     private void audioFormat(byte[] data) {
@@ -249,7 +249,7 @@ final class RemoteSession implements AutoCloseable {
             Thread.currentThread().interrupt();
         } catch (IOException e) {
             if (!closed) {
-                writerError = "Beim Senden wurde die Verbindung unterbrochen.";
+                writerError = "Connection lost while sending.";
                 close();
             }
         }
@@ -264,10 +264,10 @@ final class RemoteSession implements AutoCloseable {
             throws IOException, GeneralSecurityException {
         byte[] hello = expect(input, 1);
         if (hello.length < 24 || hello[0] != 'R' || hello[1] != 'S' || hello[2] != 'C' || hello[3] != 'R') {
-            throw new IOException("Kein gültiger MPC-Remote-Screen-Dienst an dieser Adresse.");
+            throw new IOException("No valid MPC Remote Screen service at this address.");
         }
         if (hello[4] != 2 || hello[5] != 0) {
-            throw new IOException("Diese Version des MPC-Remote-Screen-Protokolls wird nicht unterstützt.");
+            throw new IOException("This version of the MPC Remote Screen protocol is not supported.");
         }
         byte[] serverNonce = Arrays.copyOfRange(hello, 8, 24);
         byte[] clientNonce = new byte[16];
@@ -280,11 +280,11 @@ final class RemoteSession implements AutoCloseable {
             write(message(2, auth));
             byte[] result = expect(input, 3);
             if (result.length == 0 || result[0] == 0) {
-                throw new IOException("Anmeldung abgelehnt. Prüfe das Remote-Screen-Passwort.");
+                throw new IOException("Authentication rejected. Check the Remote Screen password.");
             }
             if (result.length < 33 || ((hello[6] & 1) != 0 && !MessageDigest.isEqual(
                     Arrays.copyOfRange(result, 1, 33), proof(key, "RSCR-server", serverNonce, clientNonce)))) {
-                throw new IOException("Die MPC konnte das Passwort nicht bestätigen.");
+                throw new IOException("The MPC could not verify the password.");
             }
         } finally {
             Arrays.fill(key, (byte) 0);
@@ -323,7 +323,7 @@ final class RemoteSession implements AutoCloseable {
 
     private static byte[] expect(DataInputStream input, int type) throws IOException {
         Message message = receive(input);
-        if (message.type != type) throw new IOException("Unerwartete Antwort der MPC.");
+        if (message.type != type) throw new IOException("Unexpected response from the MPC.");
         return message.data;
     }
 
@@ -332,7 +332,7 @@ final class RemoteSession implements AutoCloseable {
         int length = Integer.reverseBytes(input.readInt());
         int maximum = type == 5 ? MAX_FRAME_MESSAGE : 65536;
         if (type < 1 || type > 16 || length < 0 || length > maximum) {
-            throw new IOException("Ungültige Nachricht vom Remote-Screen-Dienst.");
+            throw new IOException("Invalid message from the Remote Screen service.");
         }
         byte[] data = new byte[length];
         input.readFully(data);

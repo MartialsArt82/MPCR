@@ -31,7 +31,7 @@ cat > "%{buildroot}%{_datadir}/applications/mpc-remote-screen.desktop" <<'EOF'
 [Desktop Entry]
 Type=Application
 Name=MPCR Viewer
-Comment=Inoffizieller Remote-Viewer für kompatible MPC-Geräte
+Comment=Unofficial remote viewer for compatible MPC devices
 Exec=%{_bindir}/mpc-remote-screen --desktop
 Icon=mpc-remote-screen
 Terminal=false

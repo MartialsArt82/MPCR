@@ -1,38 +1,38 @@
-# Datenschutzhinweise für MPCR Viewer
+# Privacy Notice for MPCR Viewer
 
-Stand 25. November 2026. Diese Hinweise beschreiben MPCR ab Version 1.5 und unterscheiden den Betrieb des Viewers von der Nutzung externer Angebote.
+Last updated November 25, 2026. This notice describes MPCR from version 1.5 onward and distinguishes operating the viewer from using external services.
 
-## Kontakt
+## Contact
 
-Projektbetreiber ist Paul Weigl. Name, Anschrift und Kontaktmöglichkeiten stehen in der [Anbieterkennzeichnung](https://www.paulweigl.de/impressum-1042906.html). Wenn es um persönliche Daten geht, nutze bitte den dort genannten Kontakt. GitHub-Issues sind öffentlich.
+The project maintainer is Paul Weigl. Name, postal address, and contact details are provided in the [Legal Notice](https://www.paulweigl.de/impressum-1042906.html). For matters concerning personal data, please use the contact details listed there. GitHub issues are public.
 
-## Verwendung der App
+## Using the App
 
-| Daten | Zweck und Empfänger | Speicherung |
+| Data | Purpose and Recipients | Retention |
 | --- | --- | --- |
-| Eingetragene IP-Adresse oder Hostname und Port | Verbindungsaufbau zur ausgewählten MPC. Bei Hostnamen kann das Betriebssystem seinen konfigurierten DNS-Dienst nutzen. | Android speichert den zuletzt für einen Verbindungsversuch eingegebenen Eintrag nur, wenn du **MPC-Adresse merken** aktiviert hast. Die Option ist beim ersten Start und nach dem Update von einer früheren Version ausgeschaltet. Linux speichert ihn nicht in App-Einstellungen. Ein in der Shell eingegebener Aufruf kann in der Shell-Historie stehen. |
-| Remote-Screen-Passwort | Die App verarbeitet das Passwort für die Anmeldung und sendet die im Protokoll vorgesehenen Prüfdaten an die MPC. | Verarbeitung im Arbeitsspeicher. Die App speichert das Passwort weder dauerhaft noch im Diagnoseprotokoll. |
-| Bild, optional Audio und Fernsteuerung | Die MPC sendet die Bilddaten und bei aktiviertem Audio auch Audio. Bei aktivierter Steuerung gehen Maus- bzw. Touch-Ereignisse an die MPC. | Die App verarbeitet diese Daten für Anzeige, Wiedergabe und Bedienung im Arbeitsspeicher. Sie erstellt keine Aufzeichnungen. |
-| Anzeige des Support-Buttons | Android merkt sich die gewählte Sichtbarkeit lokal. | Bis zur Änderung oder bis die lokalen App-Daten gelöscht werden. |
-| Diagnose beim Menüstart unter Linux | Linux kann Startfehler mit Informationen zur Java- und Anzeigeumgebung lokal protokollieren. | Das Protokoll liegt unter `${XDG_STATE_HOME:-$HOME/.local/state}/mpc-remote-screen/startup.log` und wird beim nächsten Menüstart überschrieben. Du kannst die Datei auch manuell löschen. |
+| Entered IP address or hostname and port | Establishing a connection to the selected MPC. For hostnames, the operating system may use its configured DNS service. | Android saves the last entry used for a connection attempt only if you have enabled **Remember MPC address**. This option is turned off on first launch and after updating from an earlier version. Linux does not save it in app settings. An invocation entered in a shell may remain in your shell history. |
+| Remote Screen password | The app processes the password for authentication and sends the verification data specified by the protocol to the MPC. | Processed in memory. The app does not store the password persistently or in the diagnostic log. |
+| Video, optional audio, and remote control | The MPC sends video data and, when audio is enabled, audio data. When control is enabled, mouse or touch events are sent to the MPC. | The app processes this data in memory for display, playback, and input. It does not create recordings. |
+| Support button visibility | Android remembers your chosen visibility setting locally. | Until changed or until local app data is deleted. |
+| Diagnostic log on Linux menu launch | Linux may locally log startup errors along with information about the Java and display environment. | The log is located at `${XDG_STATE_HOME:-$HOME/.local/state}/mpc-remote-screen/startup.log` and is overwritten on the next menu launch. You can also delete the file manually. |
 
-MPCR verwendet App-Daten ausschließlich für den oben beschriebenen Betrieb des Viewers. Die App verwendet sie weder für Newsletter noch für Werbung oder andere Zwecke. Es gibt keine Newsletter-Anmeldung in der App. Der Viewer betreibt keinen Projektserver und sendet keine Telemetrie, Werbedaten oder Fehlerberichte an den Projektbetreiber. Remote Screen authentifiziert die Anmeldung. Der Bild-, Audio- und Steuerdatenverkehr ist unverschlüsselt. Verwende MPCR in einem vertrauenswürdigen Netzwerk.
+MPCR uses app data solely for operating the viewer as described above. The app never uses it for newsletters, advertising, or other purposes. There is no newsletter signup in the app. The viewer does not operate a project server and does not send telemetry, advertising data, or crash reports to the project maintainer. Remote Screen authenticates the login. Video, audio, and control traffic is unencrypted. Use MPCR on a trusted network.
 
-Auf Android löscht **Einstellungen → Datenschutz → Adresse vergessen** den gespeicherten Eintrag und schaltet das Merken aus. Auch das Ausschalten von **MPC-Adresse merken** löscht den Eintrag. Über die Android-Systemeinstellungen kannst du alle App-Daten löschen. Die App fordert ausschließlich die Berechtigung `INTERNET` an. Sie verwendet weder Mikrofon noch Kamera oder Standort.
+On Android, **Settings → Privacy → Forget address** deletes the saved entry and disables remembering it. Turning off **Remember MPC address** also deletes the entry. You can delete all app data via the Android system settings. The app requests only the `INTERNET` permission. It does not access the microphone, camera, or location.
 
-## GitHub und Ko-fi
+## GitHub and Ko-fi
 
-- **GitHub:** GitHub betreibt das Repository und stellt die Downloads bereit. Beim Aufruf oder Download verarbeitet GitHub die für die Plattform anfallenden Nutzungsdaten. Beiträge in öffentlichen Issues und Pull Requests werden öffentlich angezeigt. Zusätzliche personenbezogene Inhalte solltest du dort nur bewusst veröffentlichen. [GitHub-Datenschutzerklärung](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)
-- **Ko-fi:** Der freiwillige Support-Link öffnet Ko-fi im Browser. MPCR übergibt dabei lediglich die Zieladresse des Links. MPC-Adressen, Passwörter, Bilder, Audio und Steuereingaben werden dabei nicht mitgegeben. Ko-fi und der gewählte Zahlungsdienst verarbeiten Daten nach ihren eigenen Datenschutzhinweisen. Bei einer Zahlung können dem Empfänger Angaben zur Transaktion zugänglich werden. [Ko-fi-Datenschutzerklärung](https://more.ko-fi.com/privacy) · [Ko-fi-Hinweise zu Zahlungen](https://help.ko-fi.com/hc/en-us/articles/360013140633-Supporter-payments-FAQ)
+- **GitHub:** GitHub operates the repository and hosts the downloads. When you visit pages or download files, GitHub processes usage data generated for the platform. Contributions in public issues and pull requests are displayed publicly. You should only publish additional personal information there deliberately. [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement)
+- **Ko-fi:** The voluntary support link opens Ko-fi in your browser. MPCR only passes the target URL of the link. MPC addresses, passwords, video, audio, and control inputs are not included. Ko-fi and the selected payment provider process data according to their own privacy policies. When a payment is made, transaction details may become accessible to the recipient. [Ko-fi Privacy Policy](https://more.ko-fi.com/privacy) · [Ko-fi Supporter Payments FAQ](https://help.ko-fi.com/hc/en-us/articles/360013140633-Supporter-payments-FAQ)
 
-### Freiwillige Trinkgelder
+### Voluntary Tips
 
-Über Ko-fi kannst du das Projekt mit einem freiwilligen Trinkgeld ohne Gegenleistung unterstützen. Ko-fi oder der Zahlungsdienst kann Paul Weigl dabei Angaben wie Name oder Nutzername, E-Mail-Adresse und Transaktionsdaten (zum Beispiel Betrag, Datum, Zahlungsstatus) zur Verfügung stellen. Verantwortlich für die eigene Verarbeitung dieser erhaltenen Daten ist Paul Weigl. Die Kontaktdaten stehen in der oben verlinkten Anbieterkennzeichnung.
+Through Ko-fi, you can support the project with a voluntary tip without consideration. Ko-fi or the payment provider may make details such as name or username, email address, and transaction data (for example amount, date, payment status) available to Paul Weigl. Paul Weigl is the controller for the processing of these received details. Contact details are available in the Legal Notice linked above.
 
-Paul Weigl verwendet die erhaltenen Angaben ausschließlich zur Abwicklung des Trinkgelds und zur Erfüllung gesetzlicher Aufbewahrungspflichten. Rechtsgrundlage für die Abwicklung ist Art. 6 Abs. 1 lit. b DSGVO. Soweit personenbezogene Daten aufgrund gesetzlicher Pflichten aufzubewahren sind, ist die Rechtsgrundlage Art. 6 Abs. 1 lit. c DSGVO. Die Daten werden für die Dauer der Abwicklung und gegebenenfalls bis zum Ablauf einschlägiger gesetzlicher Aufbewahrungsfristen aufbewahrt. Soweit gesetzlich erforderlich, können zuständige Behörden Daten erhalten. Die Bereitstellung der Zahlungsdaten ist freiwillig. Sie ist für ein Trinkgeld erforderlich und hat keinen Einfluss auf die Nutzung von MPCR.
+Paul Weigl uses the received details solely to process the tip and to comply with statutory retention obligations. The legal basis for processing is Art. 6(1)(b) GDPR. Where personal data must be retained due to legal obligations, the legal basis is Art. 6(1)(c) GDPR. The data is stored for the duration of processing and, where applicable, until the expiry of relevant statutory retention periods. Where required by law, competent authorities may receive data. Providing payment details is voluntary. It is required to make a tip and has no effect on using MPCR.
 
-App-Daten und Daten aus Trinkgeldern werden nicht für Newsletter oder Werbung verwendet. [DSGVO, Art. 6 und 13](https://eur-lex.europa.eu/eli/reg/2016/679/oj?locale=de)
+App data and data from tips are not used for newsletters or advertising. [GDPR, Art. 6 and 13](https://eur-lex.europa.eu/eli/reg/2016/679/oj?locale=en)
 
-## Datenschutzrechte
+## Data Protection Rights
 
-Soweit die DSGVO auf die jeweilige Verarbeitung Anwendung findet, kannst du beim Verantwortlichen Auskunft, Berichtigung, Löschung oder Einschränkung verlangen. Je nach Voraussetzungen kommen Widerspruch und Datenübertragbarkeit hinzu. Du kannst dich außerdem bei einer Datenschutzaufsichtsbehörde beschweren. Bei Fragen zur Verarbeitung durch GitHub, Ko-fi oder einen Zahlungsdienst wende dich direkt an den jeweiligen Anbieter. [DSGVO, insbesondere Art. 15–21 und 77](https://eur-lex.europa.eu/eli/reg/2016/679/oj?locale=de)
+Where the GDPR applies to the respective processing, you may request access, rectification, erasure, or restriction from the controller. Depending on the requirements, the rights to object and to data portability also apply. You also have the right to lodge a complaint with a data protection supervisory authority. For questions regarding processing by GitHub, Ko-fi, or a payment provider, please contact the respective provider directly. [GDPR, in particular Art. 15–21 and 77](https://eur-lex.europa.eu/eli/reg/2016/679/oj?locale=en)

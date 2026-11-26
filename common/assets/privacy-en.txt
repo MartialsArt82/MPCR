@@ -1,0 +1,9 @@
+MPCR is an unofficial viewer for the Remote Screen feature of supported MPC devices.
+
+MPCR connects via TCP to the address you enter. The app processes the password for authentication and receives the screen image. If you enable Audio or Control, the app also receives audio or sends your input to the MPC. MPCR does not save recordings and does not transmit telemetry to the project maintainer. MPCR uses app data solely for operating the viewer, and never for newsletters, advertising, or other purposes. Video, audio, and control traffic is unencrypted. Use a trusted network.
+
+Android stores the last used address only if you enable "Remember MPC address". "Forget address" deletes the entry and turns off remembering. Android also stores your chosen visibility for the support button. You can delete all local app data in Android's app settings. Linux does not store addresses. When launched from the app menu, Linux may create a local diagnostic log. The Remote Screen password is never stored permanently.
+
+The support button opens Ko-fi in your browser. The app does not send any MPC data along with it. Ko-fi's and the payment provider's privacy notices apply to visiting the page and making voluntary tips without consideration. Paul Weigl uses received payment details solely for processing and legally required retention. They are not used for newsletters or advertising. GitHub's privacy statement applies to downloads and public contributions on GitHub.
+
+Detailed information and contact: github.com/MartialsArt82/MPCR/blob/main/PRIVACY.md
