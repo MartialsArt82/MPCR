@@ -99,7 +99,7 @@ public final class ViewerActivity extends Activity {
         content.addView(header, new LinearLayout.LayoutParams(-1, -2));
         status = new TextView(this);
         status.setTextColor(PAPER);
-        status.setText("MPCR · Inoffizieller Viewer");
+        status.setText("MPCR · Unofficial Viewer");
         status.setTextSize(17);
         status.setTypeface(getResources().getFont(R.font.barlow_semibold));
         status.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
@@ -110,8 +110,8 @@ public final class ViewerActivity extends Activity {
         header.addView(status, new LinearLayout.LayoutParams(-2, -2));
         koFiButton = new ImageButton(this);
         koFiButton.setImageResource(R.drawable.support);
-        koFiButton.setContentDescription("Auf Ko-fi unterstützen");
-        koFiButton.setTooltipText("Auf Ko-fi unterstützen");
+        koFiButton.setContentDescription("Support on Ko-fi");
+        koFiButton.setTooltipText("Support on Ko-fi");
         koFiButton.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
         koFiButton.setPadding(dp(11), dp(11), dp(11), dp(11));
         TypedValue selectable = new TypedValue();
@@ -126,8 +126,8 @@ public final class ViewerActivity extends Activity {
         settings.setTypeface(Typeface.DEFAULT);
         settings.setPadding(0, 0, 0, 0);
         settings.setMinWidth(0);
-        settings.setContentDescription("Einstellungen");
-        settings.setTooltipText("Einstellungen");
+        settings.setContentDescription("Settings");
+        settings.setTooltipText("Settings");
         settings.setOnClickListener(v -> openSettings());
         header.addView(settings, new LinearLayout.LayoutParams(dp(48), dp(48)));
         updateKoFiVisibility();
@@ -144,7 +144,7 @@ public final class ViewerActivity extends Activity {
         login.setOrientation(LinearLayout.VERTICAL);
         login.setPadding(dp(4), dp(8), dp(4), dp(16));
         fields.addView(login);
-        address = field(login, "MPC-Adresse", "192.168.1.50",
+        address = field(login, "MPC Address", "192.168.1.50",
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI, EditorInfo.IME_ACTION_NEXT);
         address.setSaveEnabled(false);
         SharedPreferences preferences = getPreferences(MODE_PRIVATE);
@@ -153,7 +153,7 @@ public final class ViewerActivity extends Activity {
         } else if (preferences.contains("address")) {
             preferences.edit().remove("address").apply();
         }
-        password = field(login, "Remote-Screen-Passwort", null,
+        password = field(login, "Remote Screen Password", null,
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, EditorInfo.IME_ACTION_DONE);
         password.setSaveEnabled(false);
         password.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
@@ -163,11 +163,11 @@ public final class ViewerActivity extends Activity {
         actions.setGravity(Gravity.CENTER_VERTICAL);
         content.addView(actions);
         connect = new Button(this);
-        connect.setText("Verbinden");
+        connect.setText("Connect");
         connect.setBackgroundTintList(ColorStateList.valueOf(ACCENT));
         connect.setTextColor(BLACK);
         actions.addView(connect, new LinearLayout.LayoutParams(0, -2, 1.35f));
-        control = toggle(actions, "Steuerung");
+        control = toggle(actions, "Control");
         audio = toggle(actions, "Audio");
         fullscreenButton = new Button(this);
         fullscreenButton.setAllCaps(false);
@@ -179,7 +179,7 @@ public final class ViewerActivity extends Activity {
         fullscreenButton.setOnClickListener(v -> setFullscreen(!fullscreen));
         connect.setOnClickListener(v -> {
             if (session == null) open();
-            else disconnect("Getrennt");
+            else disconnect("Disconnected");
         });
         control.setOnCheckedChangeListener((button, on) -> {
             if (!on) display.cancelGesture();
@@ -204,7 +204,7 @@ public final class ViewerActivity extends Activity {
         actions.setVisibility(enabled ? View.GONE : View.VISIBLE);
         content.setPadding(enabled ? 0 : dp(12), enabled ? 0 : dp(6),
                 enabled ? 0 : dp(12), enabled ? 0 : dp(6));
-        fullscreenButton.setText(enabled ? "Fenster" : "Vollbild");
+        fullscreenButton.setText(enabled ? "Window" : "Fullscreen");
         if (Build.VERSION.SDK_INT >= 30) {
             WindowInsetsController controller = getWindow().getInsetsController();
             if (controller != null) {
@@ -272,8 +272,8 @@ public final class ViewerActivity extends Activity {
     private void openSettings() {
         SharedPreferences preferences = getPreferences(MODE_PRIVATE);
         new AlertDialog.Builder(this)
-                .setTitle("Einstellungen")
-                .setMultiChoiceItems(new String[] {"Support-Schaltfläche anzeigen", "MPC-Adresse merken"},
+                .setTitle("Settings")
+                .setMultiChoiceItems(new String[] {"Show support button", "Remember MPC address"},
                         new boolean[] {preferences.getBoolean("showKoFi", true),
                                 preferences.getBoolean("rememberAddress", false)}, (dialog, item, checked) -> {
                             if (item == 0) {
@@ -285,28 +285,28 @@ public final class ViewerActivity extends Activity {
                                 editor.apply();
                             }
                         })
-                .setNeutralButton("Ko-fi öffnen", (dialog, which) -> openKoFi())
-                .setNegativeButton("Datenschutz", (dialog, which) -> showPrivacy())
-                .setPositiveButton("Fertig", null)
+                .setNeutralButton("Open Ko-fi", (dialog, which) -> openKoFi())
+                .setNegativeButton("Privacy", (dialog, which) -> showPrivacy())
+                .setPositiveButton("Done", null)
                 .show();
     }
 
     private void showPrivacy() {
-        try (Scanner input = new Scanner(getAssets().open("privacy-de.txt"), "UTF-8")) {
+        try (Scanner input = new Scanner(getAssets().open("privacy-en.txt"), "UTF-8")) {
             new AlertDialog.Builder(this)
-                    .setTitle("Datenschutz")
+                    .setTitle("Privacy")
                     .setMessage(input.useDelimiter("\\A").next())
-                    .setNeutralButton("Adresse vergessen", (dialog, which) -> {
+                    .setNeutralButton("Forget address", (dialog, which) -> {
                         getPreferences(MODE_PRIVATE).edit().remove("address")
                                 .putBoolean("rememberAddress", false).apply();
                         if (session == null) address.setText("");
                     })
-                    .setNegativeButton("Impressum", (dialog, which) ->
+                    .setNegativeButton("Legal Notice", (dialog, which) ->
                             openBrowser("https://www.paulweigl.de/impressum-1042906.html"))
-                    .setPositiveButton("Fertig", null)
+                    .setPositiveButton("Done", null)
                     .show();
         } catch (IOException e) {
-            Toast.makeText(this, "Datenschutzhinweis konnte nicht geladen werden.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Could not load privacy notice.", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -318,7 +318,7 @@ public final class ViewerActivity extends Activity {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(address)));
         } catch (ActivityNotFoundException e) {
-            Toast.makeText(this, "Kein Browser zum Öffnen der Seite gefunden.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "No browser found to open the page.", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -332,10 +332,10 @@ public final class ViewerActivity extends Activity {
 
     private ToggleButton toggle(LinearLayout parent, String label) {
         ToggleButton toggle = new ToggleButton(this);
-        toggle.setTextOn(label + " an");
-        toggle.setTextOff(label + " aus");
+        toggle.setTextOn(label + " on");
+        toggle.setTextOff(label + " off");
         toggle.setChecked(false);
-        toggle.setText(label + " aus");
+        toggle.setText(label + " off");
         toggle.setAllCaps(false);
         parent.addView(toggle, new LinearLayout.LayoutParams(0, -2, 1));
         return toggle;
@@ -399,7 +399,7 @@ public final class ViewerActivity extends Activity {
 
     private void updateControls() {
         boolean active = session != null;
-        connect.setText(active ? "Trennen" : "Verbinden");
+        connect.setText(active ? "Disconnect" : "Connect");
         address.setEnabled(!active);
         password.setEnabled(!active);
         control.setEnabled(active && interactive);
@@ -431,7 +431,7 @@ public final class ViewerActivity extends Activity {
 
     @Override protected void onStop() {
         super.onStop();
-        if (session != null) disconnect("Getrennt");
+        if (session != null) disconnect("Disconnected");
     }
 
     private int dp(float pixels) {
@@ -459,7 +459,7 @@ public final class ViewerActivity extends Activity {
         int channelMask = channels == 1 ? AudioFormat.CHANNEL_OUT_MONO : AudioFormat.CHANNEL_OUT_STEREO;
         int encoding = AudioFormat.ENCODING_PCM_16BIT;
         int minSize = AudioTrack.getMinBufferSize(rate, channelMask, encoding);
-        if (minSize <= 0) throw new IllegalArgumentException("Audioformat");
+        if (minSize <= 0) throw new IllegalArgumentException("Audio format");
         AudioTrack track = new AudioTrack.Builder()
                 .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build())
                 .setAudioFormat(new AudioFormat.Builder().setEncoding(encoding).setSampleRate(rate)
@@ -496,7 +496,7 @@ public final class ViewerActivity extends Activity {
         Display(Context context) {
             super(context);
             setBackgroundColor(BLACK);
-            setContentDescription("MPC-Bildschirm");
+            setContentDescription("MPC Screen");
         }
 
         void presentFrame() {

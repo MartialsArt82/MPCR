@@ -72,12 +72,12 @@ public final class LinuxViewer extends JFrame {
 
     private final JTextField address = new JTextField(16);
     private final JPasswordField password = new JPasswordField(13);
-    private final JLabel status = new JLabel("MPC-Adresse und Remote-Screen-Passwort eingeben.");
-    private final JButton connect = new JButton("Verbinden");
-    private final JCheckBox control = new JCheckBox("Steuerung");
+    private final JLabel status = new JLabel("Enter MPC address and Remote Screen password.");
+    private final JButton connect = new JButton("Connect");
+    private final JCheckBox control = new JCheckBox("Control");
     private final JCheckBox audio = new JCheckBox("Audio");
     private final JButton koFiButton = new JButton();
-    private final JButton windowButton = new JButton("Fenster");
+    private final JButton windowButton = new JButton("Window");
     private final Display display = new Display();
     private final JPanel root = new JPanel(new BorderLayout(0, 10));
     private final JPanel login;
@@ -91,7 +91,7 @@ public final class LinuxViewer extends JFrame {
 
     public static void main(String[] args) {
         if (args.length > 1 || (args.length == 1 && "--help".equals(args[0]))) {
-            System.out.println("Aufruf: mpc-remote-screen [MPC-Adresse[:Port] | --diagnose | --version]");
+            System.out.println("Usage: mpc-remote-screen [MPC-address[:port] | --diagnose | --version]");
             return;
         }
         if (args.length == 1 && "--version".equals(args[0])) {
@@ -104,7 +104,7 @@ public final class LinuxViewer extends JFrame {
             System.exit(1);
         }
         if (diagnose) {
-            System.out.println("Java-Grafik und X11-Anzeige sind verfügbar.");
+            System.out.println("Java graphics and X11 display are available.");
             return;
         }
         SwingUtilities.invokeLater(() -> {
@@ -113,7 +113,7 @@ public final class LinuxViewer extends JFrame {
                 LinuxViewer viewer = new LinuxViewer(args.length == 0 ? "" : args[0]);
                 viewer.setVisible(true);
             } catch (RuntimeException | LinkageError | AWTError error) {
-                System.err.println("Das Viewer-Fenster konnte nicht geöffnet werden.");
+                System.err.println("Could not open the viewer window.");
                 error.printStackTrace(System.err);
                 System.exit(1);
             }
@@ -123,8 +123,8 @@ public final class LinuxViewer extends JFrame {
     private static boolean checkDesktop() {
         if (GraphicsEnvironment.isHeadless() && (System.getenv("DISPLAY") == null
                 || System.getenv("DISPLAY").isEmpty())) {
-            System.err.println("Keine X11-Anzeige gefunden. Starte den Viewer in einer Desktop-Sitzung."
-                    + " Unter Wayland wird XWayland benötigt.");
+            System.err.println("No X11 display found. Start the viewer in a desktop session."
+                    + " XWayland is required under Wayland.");
             return false;
         }
         try {
@@ -132,8 +132,8 @@ public final class LinuxViewer extends JFrame {
             Toolkit.getDefaultToolkit().getScreenSize();
             return true;
         } catch (HeadlessException | LinkageError | AWTError error) {
-            System.err.println("Java konnte die Anzeige nicht öffnen."
-                    + " Prüfe die vollständige OpenJDK-Laufzeit und den Zugriff auf X11 oder XWayland.");
+            System.err.println("Java could not open the display."
+                    + " Check the full OpenJDK runtime and access to X11 or XWayland.");
             System.err.println(error);
             return false;
         }
@@ -145,7 +145,7 @@ public final class LinuxViewer extends JFrame {
             Font font = Font.createFont(Font.TRUETYPE_FONT, file).deriveFont(15f);
             UIManager.put("defaultFont", new FontUIResource(font));
         } catch (IOException | java.awt.FontFormatException e) {
-            System.err.println("Barlow konnte nicht geladen werden: " + e.getMessage());
+            System.err.println("Could not load Barlow font: " + e.getMessage());
         }
         UIManager.put("Component.arc", 12);
         UIManager.put("Component.borderColor", INPUT_BORDER);
@@ -161,7 +161,7 @@ public final class LinuxViewer extends JFrame {
     }
 
     private LinuxViewer(String host) {
-        super("MPCR · Inoffizieller Viewer");
+        super("MPCR · Unofficial Viewer");
         setIconImage(new ImageIcon(getClass().getResource("/assets/mpc-remote-screen.png")).getImage());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         root.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
@@ -176,8 +176,8 @@ public final class LinuxViewer extends JFrame {
         toolbar.add(status, BorderLayout.CENTER);
         ImageIcon cup = new ImageIcon(getClass().getResource("/assets/support.png"));
         koFiButton.setIcon(new ImageIcon(cup.getImage().getScaledInstance(22, 18, java.awt.Image.SCALE_SMOOTH)));
-        koFiButton.setToolTipText("Auf Ko-fi unterstützen");
-        koFiButton.getAccessibleContext().setAccessibleName("Auf Ko-fi unterstützen");
+        koFiButton.setToolTipText("Support on Ko-fi");
+        koFiButton.getAccessibleContext().setAccessibleName("Support on Ko-fi");
         koFiButton.putClientProperty("JButton.buttonType", "toolBarButton");
         koFiButton.addActionListener(e -> openKoFi());
         JPanel options = new JPanel(new FlowLayout(FlowLayout.TRAILING, 8, 0));
@@ -187,10 +187,10 @@ public final class LinuxViewer extends JFrame {
             box.setForeground(PAPER);
             options.add(box);
         }
-        JButton fullscreen = new JButton("Vollbild");
+        JButton fullscreen = new JButton("Fullscreen");
         fullscreen.addActionListener(e -> setFullscreen(true));
         options.add(fullscreen);
-        JButton privacy = new JButton("Datenschutz");
+        JButton privacy = new JButton("Privacy");
         privacy.addActionListener(e -> showPrivacy());
         options.add(privacy);
         options.add(koFiButton);
@@ -205,7 +205,7 @@ public final class LinuxViewer extends JFrame {
         address.setText(host);
         connect.addActionListener(e -> {
             if (session == null) open();
-            else disconnect("Getrennt");
+            else disconnect("Disconnected");
         });
         address.addActionListener(e -> password.requestFocusInWindow());
         password.addActionListener(e -> {
@@ -221,7 +221,7 @@ public final class LinuxViewer extends JFrame {
             @Override public void windowLostFocus(WindowEvent e) { display.cancelGesture(); }
         });
         addWindowListener(new WindowAdapter() {
-            @Override public void windowClosing(WindowEvent e) { disconnect("Getrennt"); }
+            @Override public void windowClosing(WindowEvent e) { disconnect("Disconnected"); }
         });
         updateControls();
         setMinimumSize(new Dimension(700, 330));
@@ -261,14 +261,14 @@ public final class LinuxViewer extends JFrame {
     }
 
     private void showPrivacy() {
-        try (Scanner input = new Scanner(getClass().getResourceAsStream("/assets/privacy-de.txt"), "UTF-8")) {
+        try (Scanner input = new Scanner(getClass().getResourceAsStream("/assets/privacy-en.txt"), "UTF-8")) {
             JTextArea text = new JTextArea(input.useDelimiter("\\A").next(), 15, 54);
             text.setEditable(false);
             text.setLineWrap(true);
             text.setWrapStyleWord(true);
             text.setCaretPosition(0);
-            Object[] buttons = {"Schließen", "Impressum"};
-            int selection = JOptionPane.showOptionDialog(this, new JScrollPane(text), "Datenschutz",
+            Object[] buttons = {"Close", "Legal Notice"};
+            int selection = JOptionPane.showOptionDialog(this, new JScrollPane(text), "Privacy",
                     JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, buttons, buttons[0]);
             if (selection == 1) openBrowser(IMPRINT);
         }
@@ -286,8 +286,8 @@ public final class LinuxViewer extends JFrame {
                 new ProcessBuilder("xdg-open", address.toString()).start();
             }
         } catch (IOException | UnsupportedOperationException error) {
-            JOptionPane.showMessageDialog(this, "Der Browser konnte nicht geöffnet werden.\n" + address,
-                    "Externer Link", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Could not open the browser.\n" + address,
+                    "External Link", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
@@ -302,9 +302,9 @@ public final class LinuxViewer extends JFrame {
         cell.insets = new Insets(0, 0, 5, 12);
         cell.gridx = 0;
         cell.gridy = 0;
-        panel.add(label("MPC-Adresse", address), cell);
+        panel.add(label("MPC Address", address), cell);
         cell.gridx = 1;
-        panel.add(label("Remote-Screen-Passwort", password), cell);
+        panel.add(label("Remote Screen Password", password), cell);
         cell.gridy = 1;
         cell.gridx = 0;
         cell.insets.bottom = 0;
@@ -397,7 +397,7 @@ public final class LinuxViewer extends JFrame {
 
     private void updateControls() {
         boolean active = session != null;
-        connect.setText(active ? "Trennen" : "Verbinden");
+        connect.setText(active ? "Disconnect" : "Connect");
         address.setEnabled(!active);
         password.setEnabled(!active);
         control.setEnabled(active && interactive);
@@ -454,7 +454,7 @@ public final class LinuxViewer extends JFrame {
         Display() {
             setBackground(BLACK);
             setLayout(null);
-            getAccessibleContext().setAccessibleName("MPC-Bildschirm");
+            getAccessibleContext().setAccessibleName("MPC Screen");
             MouseAdapter pointer = new MouseAdapter() {
                 @Override public void mousePressed(MouseEvent e) {
                     if (session == null || drawn == null || !control.isSelected()

@@ -59,7 +59,7 @@ build_android() {
     cp common/assets/Barlow-Regular.ttf "$resources/font/barlow_regular.ttf"
     cp common/assets/Barlow-SemiBold.ttf "$resources/font/barlow_semibold.ttf"
     cp LICENSE THIRD_PARTY.md PRIVACY.md IMPRESSUM.md common/assets/Barlow-OFL.txt \
-        common/assets/privacy-de.txt build/android/assets/
+        common/assets/privacy-en.txt build/android/assets/
     "$bt/aapt2" compile --dir "$resources" -o build/android/res.zip
     "$bt/aapt2" link -I "$android_jar" --manifest android/AndroidManifest.xml \
         --java build/android/generated -A build/android/assets \

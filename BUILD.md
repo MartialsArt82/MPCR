@@ -1,13 +1,13 @@
-# MPCR Viewer aus dem Quellcode bauen
+# Building MPCR Viewer from Source
 
-Die Befehle laufen in einer Linux-Shell ab dem Repository-Wurzelverzeichnis. Die Android-APK und die Linux-Anwendung verwenden dieselbe Java-Protokollimplementierung unter `common/src`. Die Oberflächen liegen in `android/src` und `linux/src`. Die mitgelieferten Drittkomponenten und deren Quellen sind unter [Herkunft und Lizenzen](THIRD_PARTY.md) aufgeführt.
+Run these commands in a Linux shell from the repository root directory. The Android APK and the Linux application share the same Java protocol implementation under `common/src`. The user interfaces are located in `android/src` and `linux/src`. Included third-party components and their sources are listed in [Origin and Licenses](THIRD_PARTY.md).
 
-## Voraussetzungen
+## Prerequisites
 
-- OpenJDK 21 mit `javac`, `jar` und `keytool`. Setze `JAVA_HOME` auf das JDK-Verzeichnis.
-- Bash und die üblichen Linux-Werkzeuge. Für die Protokolltests wird Python 3 benötigt.
-- Für RPM zusätzlich `rpmbuild` und `rpmspec`. Unter Fedora und Nobara liefert sie das Paket `rpm-build`.
-- Für Android zusätzlich [Android SDK](https://developer.android.com/tools), Plattform API 34, Build Tools 36.0.0 und `zip`.
+- OpenJDK 21 with `javac`, `jar`, and `keytool`. Set `JAVA_HOME` to the JDK directory.
+- Bash and standard Linux utilities. Python 3 is required for the protocol tests.
+- For RPM packaging, additionally `rpmbuild` and `rpmspec`. On Fedora and Nobara, these are provided by the `rpm-build` package.
+- For Android, additionally the [Android SDK](https://developer.android.com/tools), Platform API 34, Build Tools 36.0.0, and `zip`.
 
 ## Linux
 
@@ -16,11 +16,11 @@ Die Befehle laufen in einer Linux-Shell ab dem Repository-Wurzelverzeichnis. Die
 ./build.sh rpm
 ```
 
-Das portable Archiv, das JAR und das RPM liegen danach in `dist/`. Zum Start des portablen Builds das Archiv entpacken und im entpackten Verzeichnis `./mpc-remote-screen` ausführen. Eine grafische Java-Laufzeit und X11 oder XWayland müssen installiert sein.
+Afterwards, the portable archive, JAR, and RPM are located in `dist/`. To launch the portable build, extract the archive and run `./mpc-remote-screen` inside the extracted directory. A graphical Java runtime and X11 or XWayland must be installed.
 
 ## Android
 
-Installiere die Android-SDK-Komponenten mit dem SDK Manager und passe die Pfade an deine SDK-Installation an. Zum lokalen Testen kannst du einen eigenen Schlüssel erzeugen.
+Install the Android SDK components using the SDK Manager and adjust the paths to match your SDK installation. For local testing, you can generate your own signing key.
 
 ```sh
 sdkmanager 'platforms;android-34' 'build-tools;36.0.0'
@@ -34,7 +34,7 @@ export APK_KEY_ALIAS=mpcr
 ./build.sh android
 ```
 
-Der signierte Build liegt unter `dist/mpc-remote-screen-android.apk`. Das Signierwerkzeug fragt nach dem Passwort. Der private Veröffentlichungsschlüssel gehört nicht zum Quellcode. Eine lokal signierte APK kann eine bereits installierte Release-APK nur aktualisieren, wenn dieselbe Android-Signatur verwendet wird.
+The signed build is output to `dist/mpc-remote-screen-android.apk`. The signing tool will prompt for the password. The private release key is not part of the source code. A locally signed APK can only update an already installed release APK if the same Android signing key is used.
 
 ## Tests
 
@@ -42,11 +42,11 @@ Der signierte Build liegt unter `dist/mpc-remote-screen-android.apk`. Das Signie
 ./tests/check.sh
 ```
 
-Die Tests verwenden einen lokalen MPC-Protokollsimulator. Sie prüfen unter anderem Passwortanmeldung, Verbindungsabbruch bei falschem Servernachweis, Bilddaten, Zeigerereignisse und Audio-Nachrichten.
+The tests use a local MPC protocol simulator. Among other things, they verify password authentication, connection termination on invalid server proof, screen data, pointer events, and audio messages.
 
-## Grafiken bearbeiten
+## Editing Graphics
 
-Die SVG-Quelldateien für Monitor und Tasse und die zugehörigen PNGs liegen in `common/assets/`. Die Builds verwenden die eingecheckten PNGs. Nach einer Änderung lassen sich diese mit Inkscape neu exportieren:
+The SVG source files for the monitor and cup, along with their corresponding PNGs, are located in `common/assets/`. The builds use the checked-in PNGs. After making changes, you can re-export them with Inkscape:
 
 ```sh
 inkscape common/assets/mpc-remote-screen.svg --export-type=png --export-filename=common/assets/mpc-remote-screen.png

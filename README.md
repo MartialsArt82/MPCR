@@ -1,23 +1,23 @@
 # MPCR Viewer
 
-**Inoffizieller Open-Source-Viewer für die Remote-Screen-Funktion kompatibler Akai MPC-Geräte.** MPCR ist ein unabhängiges Projekt und weder von Akai Professional oder inMusic herausgegeben noch mit ihnen verbunden.
+**Unofficial open-source viewer for the Remote Screen feature of compatible Akai MPC devices.** MPCR is an independent project and is neither published by nor affiliated with Akai Professional or inMusic.
 
-Der Viewer zeigt den Bildschirm der MPC auf Android oder Linux. Fernsteuerung und Audio lassen sich bei Freigabe auf der MPC zuschalten.
+The viewer displays the MPC screen on Android or Linux. Remote control and audio can be enabled if allowed on the MPC.
 
-## Download und Verbindung
+## Download and Connection
 
-Die signierte Android-APK, das Linux-RPM für Fedora und Nobara sowie das portable Linux-Archiv findest du in den [GitHub Releases](https://github.com/MartialsArt82/MPCR/releases).
+You can find the signed Android APK, the Linux RPM for Fedora and Nobara, and the portable Linux archive in the [GitHub Releases](https://github.com/MartialsArt82/MPCR/releases).
 
-1. Aktiviere auf der MPC **Preferences → Enhancements → Remote Screen**. Schalte bei Bedarf **Allow Remote Control** oder **Share Audio** ein.
-2. Verbinde die MPC und den Viewer mit demselben vertrauenswürdigen Netzwerk. Gib im Viewer die angezeigte MPC-Adresse und das Remote-Screen-Passwort ein.
-3. Wähle **Verbinden**. Beim Vollbildwechsel bringt dich **Fenster** zur normalen Ansicht zurück. Unter Linux kannst du zusätzlich **F11** oder **Esc** verwenden.
+1. On the MPC, enable **Preferences → Enhancements → Remote Screen**. Enable **Allow Remote Control** or **Share Audio** if needed.
+2. Connect the MPC and the viewer to the same trusted network. Enter the displayed MPC address and the Remote Screen password in the viewer.
+3. Select **Connect**. When in fullscreen mode, **Window** returns you to the normal view. On Linux, you can also press **F11** or **Esc**.
 
-Das Protokoll überträgt Bild-, Audio- und Steuerdaten ohne Verschlüsselung. Weitere Informationen findest du in der [Remote-Screen-Dokumentation von inMusic](https://support.inmusicstore.com/en/support/solutions/articles/69000885284-mpc-3-10-1-enhancements-frequently-asked-questions).
+The protocol transmits video, audio, and control data without encryption. For more information, see the [Remote Screen documentation from inMusic](https://support.inmusicstore.com/en/support/solutions/articles/69000885284-mpc-3-10-1-enhancements-frequently-asked-questions).
 
-## Quellcode und Veröffentlichung
+## Source Code and Releases
 
-- [Build-Anleitung für Android und Linux](BUILD.md)
-- [MIT-Lizenz für die eigenen Bestandteile](LICENSE) und [Herkunft und Drittanbieter-Lizenzen](THIRD_PARTY.md)
-- [Datenschutzhinweise](PRIVACY.md) und [Anbieterkennzeichnung](IMPRESSUM.md)
+- [Build instructions for Android and Linux](BUILD.md)
+- [MIT License for project-owned components](LICENSE) and [Origin and third-party licenses](THIRD_PARTY.md)
+- [Privacy Notice](PRIVACY.md) and [Legal Notice](IMPRESSUM.md)
 
-Die Android-Version benötigt Android 8.0 oder neuer. Unter Fedora und Nobara kannst du die RPM-Datei mit `sudo dnf install ./mpc-remote-screen-1.5-1.noarch.rpm` installieren. Das portable Archiv startest du nach dem Entpacken mit `./mpc-remote-screen`. Bei Linux-Startproblemen zeigt `mpc-remote-screen --diagnose` Informationen zur Java-Laufzeit und Anzeige an.
+The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpc-remote-screen-1.5-1.noarch.rpm`. After extracting the portable archive, launch it with `./mpc-remote-screen`. If you encounter startup issues on Linux, `mpc-remote-screen --diagnose` displays information about the Java runtime and display.

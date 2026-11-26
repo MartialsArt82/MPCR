@@ -55,8 +55,8 @@ public final class ProtocolCheck {
             session.start(mode.equals("empty") ? "" : mode.equals("reject") ? "incorrect" : "MPC Ä");
             if (!completed.await(12, TimeUnit.SECONDS)) throw new AssertionError("timeout");
         }
-        String expected = valid ? "MPC hat die Verbindung beendet"
-                : mode.equals("reject") ? "Anmeldung abgelehnt" : "Passwort nicht bestätigen";
+        String expected = valid ? "MPC closed the connection"
+                : mode.equals("reject") ? "Authentication rejected" : "verify the password";
         if (!result.get().contains(expected)) throw new AssertionError(result.get());
         if (valid && !Arrays.equals(pcm.get(), new byte[] {(byte) 0xd2, 4, 46, (byte) 0xfb})) {
             throw new AssertionError("PCM data");

@@ -240,5 +240,5 @@ final class ScreenBuffer {
 
     private static int u8(ByteBuffer bytes) { return bytes.get() & 255; }
     private static int u16(ByteBuffer bytes) { return bytes.getShort() & 65535; }
-    private static IOException malformed() { return new IOException("Ungültige Bildschirmdaten der MPC."); }
+    private static IOException malformed() { return new IOException("Invalid screen data from the MPC."); }
 }

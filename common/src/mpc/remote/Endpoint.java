@@ -39,6 +39,6 @@ final class Endpoint {
     }
 
     private static IllegalArgumentException invalid() {
-        return new IllegalArgumentException("Gib die IP-Adresse oder den Hostnamen der MPC ein.");
+        return new IllegalArgumentException("Enter the IP address or hostname of the MPC.");
     }
 }
