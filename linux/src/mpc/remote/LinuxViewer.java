@@ -45,7 +45,10 @@ import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Scanner;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.MemoryCacheImageInputStream;
@@ -65,8 +68,11 @@ import javax.swing.JComponent;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
-import javax.swing.JPopupMenu;
-import javax.swing.JMenuItem;
+import javax.swing.DefaultListModel;
+import javax.swing.JList;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingWorker;
+import com.formdev.flatlaf.ui.FlatLineBorder;
 import javax.swing.JRootPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -405,6 +411,18 @@ public final class LinuxViewer extends JFrame {
         JPanel addressRow = inputRow(address, select);
         panel.add(addressRow, row);
         row.gridy++;
+        DefaultListModel<String> savedLabels = new DefaultListModel<>();
+        JList<String> savedList = new JList<>(savedLabels);
+        savedList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        savedList.setFont(address.getFont());
+        savedList.setBackground(INPUT_BACKGROUND);
+        savedList.setForeground(PAPER);
+        savedList.setFixedCellHeight(address.getPreferredSize().height);
+        savedList.getAccessibleContext().setAccessibleName("Saved devices list");
+        JScrollPane deviceDropdown = roundedDropdown(savedList);
+        deviceDropdown.setVisible(false);
+        panel.add(deviceDropdown, row);
+        row.gridy++;
         panel.add(label("Remote Screen Password", password), row);
         row.gridy++;
         panel.add(inputRow(password, eye), row);
@@ -423,36 +441,80 @@ public final class LinuxViewer extends JFrame {
         buttons.add(submit);
         panel.add(buttons, row);
 
+        Runnable hideDevices = () -> {
+            deviceDropdown.setVisible(false);
+            select.setSelected(false);
+            dialog.pack();
+        };
         select.addActionListener(e -> {
-            JPopupMenu menu = new JPopupMenu();
-            java.util.List<SavedDevices.Device> saved = devices.list();
-            if (saved.isEmpty()) menu.add(new JMenuItem("No saved devices")).setEnabled(false);
-            for (SavedDevices.Device device : saved) {
-                menu.add(device.label()).addActionListener(choice -> {
-                    address.setText(device.address);
-                    name.setText(device.name);
-                    save.setSelected(false);
-                    password.setText("");
-                    setPasswordVisible(password, eye, mask, false);
-                    password.requestFocusInWindow();
-                });
+            if (deviceDropdown.isVisible()) {
+                hideDevices.run();
+                return;
             }
-            if (!saved.isEmpty()) {
-                menu.addSeparator();
-                menu.add("Clear saved devices…").addActionListener(choice -> {
-                    int confirm = JOptionPane.showConfirmDialog(dialog,
-                            "Remove all device names and addresses saved on this computer?",
-                            "Clear saved devices?", JOptionPane.OK_CANCEL_OPTION);
-                    if (confirm == JOptionPane.OK_OPTION && storeDevices(dialog, new SavedDevices())) {
+            java.util.List<SavedDevices.Device> saved = devices.list();
+            savedLabels.clear();
+            for (SavedDevices.Device device : saved) savedLabels.addElement(device.label());
+            savedLabels.addElement(saved.isEmpty() ? "No saved devices" : "Clear saved devices…");
+            deviceDropdown.setPreferredSize(new Dimension(addressRow.getWidth(),
+                    Math.min(4, savedLabels.size()) * savedList.getFixedCellHeight() + 10));
+            deviceDropdown.setVisible(true);
+            select.setSelected(true);
+            dialog.pack();
+        });
+
+        JComponent[] loginInputs = {address, password, eye, save, name, select, submit};
+        Runnable keyringError = () -> JOptionPane.showMessageDialog(dialog,
+                "Could not access the system keyring. Unlock it and try again.",
+                "Saved devices", JOptionPane.ERROR_MESSAGE);
+        Runnable chooseDevice = () -> {
+            int index = savedList.getSelectedIndex();
+            java.util.List<SavedDevices.Device> saved = devices.list();
+            if (index < 0 || saved.isEmpty()) return;
+            hideDevices.run();
+            if (index < saved.size()) {
+                SavedDevices.Device device = saved.get(index);
+                address.setText(device.address);
+                name.setText(device.name);
+                save.setSelected(false);
+                password.setText("");
+                setPasswordVisible(password, eye, mask, false);
+                keyringTask(dialog, () -> DevicePasswords.load(device.address), secret -> {
+                    if (secret != null) {
+                        password.setText(secret);
+                        submit.doClick(0);
+                    } else {
+                        password.requestFocusInWindow();
+                    }
+                }, password::requestFocusInWindow, loginInputs);
+            } else {
+                int confirm = JOptionPane.showConfirmDialog(dialog,
+                        "Remove all device names, addresses and passwords saved by MPCR-Screen?",
+                        "Clear saved devices?", JOptionPane.OK_CANCEL_OPTION);
+                if (confirm != JOptionPane.OK_OPTION) return;
+                keyringTask(dialog, () -> {
+                    DevicePasswords.clear();
+                    return null;
+                }, ignored -> {
+                    if (storeDevices(dialog, new SavedDevices())) {
                         lastAddress = "";
                         address.setText("");
                         name.setText("");
+                        password.setText("");
                         save.setSelected(false);
                     }
-                });
+                }, keyringError, loginInputs);
             }
-            menu.setPopupSize(addressRow.getWidth(), menu.getPreferredSize().height);
-            menu.show(addressRow, 0, addressRow.getHeight());
+        };
+        savedList.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) {
+                int index = savedList.locationToIndex(e.getPoint());
+                if (SwingUtilities.isLeftMouseButton(e) && index >= 0
+                        && savedList.getCellBounds(index, index).contains(e.getPoint())) chooseDevice.run();
+            }
+        });
+        savedList.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "chooseDevice");
+        savedList.getActionMap().put("chooseDevice", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent event) { chooseDevice.run(); }
         });
         cancel.addActionListener(e -> dialog.dispose());
         submit.addActionListener(e -> {
@@ -465,16 +527,27 @@ public final class LinuxViewer extends JFrame {
                 address.requestFocusInWindow();
                 return;
             }
-            if (save.isSelected() && !storeDevices(dialog, devices.with(enteredAddress, name.getText()))) return;
-            lastAddress = enteredAddress;
-            char[] secret = password.getPassword();
-            try {
+            char[] characters = password.getPassword();
+            String secret = new String(characters);
+            Arrays.fill(characters, '\0');
+            Runnable connect = () -> {
+                lastAddress = enteredAddress;
                 password.setText("");
                 dialog.dispose();
-                open(endpoint, new String(secret));
-            } finally {
-                Arrays.fill(secret, '\0');
+                open(endpoint, secret);
+            };
+            if (!save.isSelected()) {
+                connect.run();
+                return;
             }
+            if (!storeDevices(dialog, devices.with(enteredAddress, name.getText()))) return;
+            hideDevices.run();
+            keyringTask(dialog, () -> {
+                DevicePasswords.save(enteredAddress, secret);
+                return null;
+            }, ignored -> connect.run(), () -> JOptionPane.showMessageDialog(dialog,
+                    "The address was saved. Unlock the keyring to save its password, or uncheck Save Device to connect now.",
+                    "Saved devices", JOptionPane.ERROR_MESSAGE), loginInputs);
         });
         address.addActionListener(e -> password.requestFocusInWindow());
         dialog.getRootPane().setDefaultButton(submit);
@@ -484,6 +557,48 @@ public final class LinuxViewer extends JFrame {
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
         password.setText("");
+    }
+
+    private static JScrollPane roundedDropdown(JList<String> list) {
+        JScrollPane scroll = new JScrollPane(list, JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER) {
+            @Override protected void paintComponent(Graphics graphics) {
+                Graphics2D canvas = (Graphics2D) graphics.create();
+                canvas.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                canvas.setColor(INPUT_BACKGROUND);
+                canvas.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                canvas.dispose();
+                super.paintComponent(graphics);
+            }
+        };
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        list.setOpaque(false);
+        scroll.setBorder(new FlatLineBorder(new Insets(5, 8, 5, 8), INPUT_BORDER, 1, 12));
+        return scroll;
+    }
+
+    private static <T> void keyringTask(JDialog dialog, Callable<T> action,
+                                        Consumer<T> success, Runnable failure, JComponent... inputs) {
+        for (JComponent input : inputs) input.setEnabled(false);
+        dialog.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR));
+        new SwingWorker<T, Void>() {
+            @Override protected T doInBackground() throws Exception { return action.call(); }
+
+            @Override protected void done() {
+                if (!dialog.isDisplayable()) return;
+                for (JComponent input : inputs) input.setEnabled(true);
+                dialog.setCursor(java.awt.Cursor.getDefaultCursor());
+                try {
+                    success.accept(get());
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                    failure.run();
+                } catch (ExecutionException error) {
+                    failure.run();
+                }
+            }
+        }.execute();
     }
 
     private static JPanel inputRow(JTextField field, JComponent accessory) {

@@ -1,5 +1,5 @@
 Name:           mpcr-screen
-Version:        1.8.1
+Version:        1.9
 Release:        1
 Summary:        Unofficial remote viewer for compatible MPC devices
 License:        MIT AND Apache-2.0 AND OFL-1.1
@@ -8,6 +8,7 @@ Source0:        mpcr-screen-linux.tar.gz
 Requires:       java >= 1.8.0
 Requires:       /bin/sh
 Requires:       /usr/bin/readlink
+Requires:       /usr/bin/secret-tool
 Recommends:     xorg-x11-server-Xwayland
 Recommends:     xdg-utils
 Provides:       mpc-remote-screen = %{version}-%{release}

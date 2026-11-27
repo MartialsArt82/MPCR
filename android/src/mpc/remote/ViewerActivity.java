@@ -40,13 +40,14 @@ import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ArrayAdapter;
-import android.widget.ListPopupWindow;
+import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 import app.mpcremote.viewer.R;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -308,9 +309,30 @@ public final class ViewerActivity extends Activity {
         }
     }
 
-    private void storeDevices(SavedDevices updated) {
-        devices = updated;
-        getPreferences(MODE_PRIVATE).edit().putString("savedDevices", updated.serialize()).apply();
+    private boolean saveDevice(String address, String name, String password) {
+        try {
+            String encrypted = DevicePasswords.encrypt(address, password);
+            SavedDevices updated = devices.with(address, name);
+            getPreferences(MODE_PRIVATE).edit().putString("savedDevices", updated.serialize())
+                    .putString(DevicePasswords.PREFERENCE_PREFIX + address, encrypted).apply();
+            devices = updated;
+            return true;
+        } catch (GeneralSecurityException | IOException | RuntimeException error) {
+            Toast.makeText(this, "Could not save the password securely. Uncheck Save Device to connect.",
+                    Toast.LENGTH_LONG).show();
+            return false;
+        }
+    }
+
+    private String savedPassword(String address) {
+        String stored = getPreferences(MODE_PRIVATE)
+                .getString(DevicePasswords.PREFERENCE_PREFIX + address, null);
+        if (stored == null) return null;
+        try {
+            return DevicePasswords.decrypt(address, stored);
+        } catch (GeneralSecurityException | IOException | IllegalArgumentException error) {
+            return null;
+        }
     }
 
     private void showLogin() {
@@ -327,6 +349,17 @@ public final class ViewerActivity extends Activity {
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI,
                 EditorInfo.IME_ACTION_NEXT, select);
         address.setText(lastAddress);
+
+        ListView savedList = new ListView(this);
+        savedList.setBackground(inputBackground(INPUT_BORDER, 1));
+        savedList.setClipToOutline(true);
+        savedList.setDivider(null);
+        savedList.setPadding(dp(2), dp(2), dp(2), dp(2));
+        savedList.setNestedScrollingEnabled(true);
+        savedList.setVisibility(View.GONE);
+        LinearLayout.LayoutParams listLayout = new LinearLayout.LayoutParams(-1, -2);
+        listLayout.bottomMargin = dp(10);
+        login.addView(savedList, listLayout);
 
         ImageButton eye = loginIcon(R.drawable.eye, "Show password");
         EditText password = field(login, "Remote Screen Password", null,
@@ -348,43 +381,6 @@ public final class ViewerActivity extends Activity {
         deviceName.setVisibility(View.GONE);
         save.setOnCheckedChangeListener((button, checked) ->
                 deviceName.setVisibility(checked ? View.VISIBLE : View.GONE));
-        select.setOnClickListener(v -> {
-            java.util.List<SavedDevices.Device> savedDevices = devices.list();
-            java.util.List<String> labels = new java.util.ArrayList<>();
-            for (SavedDevices.Device device : savedDevices) labels.add(device.label());
-            labels.add(savedDevices.isEmpty() ? "No saved devices" : "Clear saved devices…");
-            ArrayAdapter<String> rows = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, labels) {
-                @Override public boolean isEnabled(int position) { return !savedDevices.isEmpty(); }
-                @Override public boolean areAllItemsEnabled() { return !savedDevices.isEmpty(); }
-            };
-            View addressRow = (View) address.getParent();
-            ListPopupWindow menu = new ListPopupWindow(this);
-            menu.setAnchorView(addressRow);
-            menu.setWidth(addressRow.getWidth());
-            menu.setDropDownGravity(Gravity.LEFT);
-            menu.setVerticalOffset(0);
-            menu.setModal(true);
-            menu.setAdapter(rows);
-            menu.setOnItemClickListener((parent, row, index, id) -> {
-                menu.dismiss();
-                if (index < savedDevices.size()) {
-                    SavedDevices.Device device = savedDevices.get(index);
-                    address.setText(device.address);
-                    name.setText(device.name);
-                    save.setChecked(false);
-                    password.setText("");
-                    setPasswordVisible(password, eye, false);
-                    password.requestFocus();
-                } else if (!savedDevices.isEmpty()) {
-                    confirmClearDevices(() -> {
-                        address.setText("");
-                        name.setText("");
-                        save.setChecked(false);
-                    });
-                }
-            });
-            menu.show();
-        });
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Connect to MPC").setView(scroll)
                 .setNegativeButton("Cancel", null).setPositiveButton("Connect", null).create();
@@ -406,12 +402,67 @@ public final class ViewerActivity extends Activity {
                 address.requestFocus();
                 return;
             }
-            lastAddress = enteredAddress;
-            if (save.isChecked()) storeDevices(devices.with(enteredAddress, name.getText().toString()));
             String secret = password.getText().toString();
+            if (save.isChecked() && !saveDevice(enteredAddress, name.getText().toString(), secret)) return;
+            lastAddress = enteredAddress;
             dialog.dismiss();
             open(endpoint, secret);
         };
+        select.setOnClickListener(v -> {
+            if (savedList.getVisibility() == View.VISIBLE) {
+                savedList.setVisibility(View.GONE);
+                select.setSelected(false);
+                return;
+            }
+            java.util.List<SavedDevices.Device> savedDevices = devices.list();
+            java.util.List<String> labels = new java.util.ArrayList<>();
+            for (SavedDevices.Device device : savedDevices) labels.add(device.label());
+            labels.add(savedDevices.isEmpty() ? "No saved devices" : "Clear saved devices…");
+            savedList.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, labels) {
+                @Override public boolean isEnabled(int position) { return !savedDevices.isEmpty(); }
+                @Override public boolean areAllItemsEnabled() { return !savedDevices.isEmpty(); }
+                @Override public View getView(int position, View convertView, android.view.ViewGroup parent) {
+                    TextView row = (TextView) super.getView(position, convertView, parent);
+                    row.setTypeface(getResources().getFont(R.font.barlow_regular));
+                    row.setTextSize(20);
+                    row.setTextColor(isEnabled(position) ? PAPER : MUTED);
+                    row.setSingleLine(true);
+                    row.setEllipsize(TextUtils.TruncateAt.END);
+                    row.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, dp(48)));
+                    return row;
+                }
+            });
+            savedList.setOnItemClickListener((parent, row, index, id) -> {
+                savedList.setVisibility(View.GONE);
+                select.setSelected(false);
+                if (index < savedDevices.size()) {
+                    SavedDevices.Device device = savedDevices.get(index);
+                    address.setText(device.address);
+                    name.setText(device.name);
+                    save.setChecked(false);
+                    setPasswordVisible(password, eye, false);
+                    String secret = savedPassword(device.address);
+                    if (secret != null) {
+                        password.setText(secret);
+                        submit.run();
+                    } else {
+                        password.setText("");
+                        password.requestFocus();
+                    }
+                } else if (!savedDevices.isEmpty()) {
+                    confirmClearDevices(() -> {
+                        address.setText("");
+                        name.setText("");
+                        password.setText("");
+                        save.setChecked(false);
+                    });
+                }
+            });
+            listLayout.height = dp(48 * Math.min(labels.size(), 4) + 4);
+            savedList.setLayoutParams(listLayout);
+            savedList.setVisibility(View.VISIBLE);
+            select.setSelected(true);
+        });
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> submit.run());
         password.setOnEditorActionListener((v, action, event) -> {
             submit.run();
@@ -444,9 +495,15 @@ public final class ViewerActivity extends Activity {
 
     private void confirmClearDevices(Runnable cleared) {
         new AlertDialog.Builder(this).setTitle("Clear saved devices?")
-                .setMessage("Remove the device names and addresses saved on this screen.")
+                .setMessage("Remove the device names, addresses and passwords saved by MPCR-Screen.")
                 .setNegativeButton("Cancel", null).setPositiveButton("Clear", (dialog, which) -> {
-                    storeDevices(new SavedDevices());
+                    SharedPreferences preferences = getPreferences(MODE_PRIVATE);
+                    SharedPreferences.Editor editor = preferences.edit().remove("savedDevices");
+                    for (String key : preferences.getAll().keySet()) {
+                        if (key.startsWith(DevicePasswords.PREFERENCE_PREFIX)) editor.remove(key);
+                    }
+                    editor.apply();
+                    devices = new SavedDevices();
                     lastAddress = "";
                     cleared.run();
                 }).show();
