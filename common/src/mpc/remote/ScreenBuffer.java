@@ -30,6 +30,7 @@ final class ScreenBuffer {
     final int height;
     final int controls;
     final boolean audio;
+    private long revision;
 
     ScreenBuffer(byte[] description, Jpeg jpeg) throws IOException {
         this.jpeg = jpeg;
@@ -83,7 +84,13 @@ final class ScreenBuffer {
             budget -= w * h;
             apply(payload, offset, length, x, y, w, h, codec, drop);
         }
+        revision++;
         return id;
+    }
+
+    synchronized long copySnapshot(int[] destination, long previousRevision) {
+        if (revision != previousRevision) System.arraycopy(pixels, 0, destination, 0, pixels.length);
+        return revision;
     }
 
     private void apply(byte[] data, int offset, int length, int x, int y,

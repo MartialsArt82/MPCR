@@ -1,0 +1,39 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MPCR-Screen OBS Output</title>
+<style>
+  body { margin: 0; overflow: hidden; background: transparent; }
+  canvas { display: block; }
+</style>
+<canvas id="screen" width="1" height="1"></canvas>
+<script>
+  const canvas = document.getElementById("screen");
+  const context = canvas.getContext("2d");
+  let tag = "";
+
+  async function update() {
+    try {
+      const headers = tag ? { "If-None-Match": tag } : {};
+      const response = await fetch("frame", { cache: "no-store", headers });
+      if (response.status === 200) {
+        const width = Number(response.headers.get("X-Frame-Width"));
+        const height = Number(response.headers.get("X-Frame-Height"));
+        const pixels = new Uint8ClampedArray(await response.arrayBuffer());
+        if (canvas.width !== width) canvas.width = width;
+        if (canvas.height !== height) canvas.height = height;
+        context.putImageData(new ImageData(pixels, width, height), 0, 0);
+        tag = response.headers.get("ETag");
+      } else if (response.status === 204) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        tag = "";
+      }
+    } catch (error) {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      tag = "";
+    } finally {
+      setTimeout(update, 33);
+    }
+  }
+
+  update();
+</script>

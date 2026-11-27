@@ -39,7 +39,8 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
+import android.widget.ArrayAdapter;
+import android.widget.ListPopupWindow;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -69,6 +70,7 @@ public final class ViewerActivity extends Activity {
     private TextView status;
     private Button connect;
     private Button fullscreenButton;
+    private Button nativeButton;
     private ImageButton koFiButton;
     private ToggleButton control;
     private CheckBox inputMarks;
@@ -78,6 +80,7 @@ public final class ViewerActivity extends Activity {
     private boolean interactive;
     private boolean soundAvailable;
     private boolean fullscreen;
+    private boolean nativeResolution;
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -100,7 +103,7 @@ public final class ViewerActivity extends Activity {
             }
         };
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPaddingRelative(0, 0, dp(104), 0);
+        header.setPaddingRelative(0, 0, dp(152), 0);
         content.addView(header, new LinearLayout.LayoutParams(-1, -2));
         status = new TextView(this);
         status.setTextColor(PAPER);
@@ -165,13 +168,22 @@ public final class ViewerActivity extends Activity {
         });
         actions.addView(inputMarks, new LinearLayout.LayoutParams(-2, -2));
         audio = toggle(actions, "Audio");
+        LinearLayout viewButtons = new LinearLayout(this);
+        nativeButton = new Button(this);
+        nativeButton.setText("1:1");
+        nativeButton.setMinWidth(0);
+        nativeButton.setMinimumWidth(0);
+        nativeButton.setPadding(0, 0, 0, 0);
+        viewButtons.addView(nativeButton, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        nativeButton.setOnClickListener(v -> setNativeResolution(!nativeResolution));
         fullscreenButton = new Button(this);
         fullscreenButton.setAllCaps(false);
+        viewButtons.addView(fullscreenButton, new LinearLayout.LayoutParams(dp(100), dp(48)));
         FrameLayout.LayoutParams buttonPosition = new FrameLayout.LayoutParams(
-                dp(100), dp(48), Gravity.TOP | Gravity.END);
+                -2, dp(48), Gravity.TOP | Gravity.END);
         buttonPosition.topMargin = dp(6);
         buttonPosition.setMarginEnd(dp(12));
-        root.addView(fullscreenButton, buttonPosition);
+        root.addView(viewButtons, buttonPosition);
         fullscreenButton.setOnClickListener(v -> setFullscreen(!fullscreen));
         connect.setOnClickListener(v -> {
             if (session == null) showLogin();
@@ -184,6 +196,7 @@ public final class ViewerActivity extends Activity {
             if (session != null && soundAvailable) session.setAudio(on);
         });
         updateControls();
+        setNativeResolution(saved != null && saved.getBoolean("nativeResolution"));
         setFullscreen(saved != null && saved.getBoolean("fullscreen"));
         if (!fullscreen) showLogin();
     }
@@ -212,6 +225,18 @@ public final class ViewerActivity extends Activity {
         }
     }
 
+    private void setNativeResolution(boolean enabled) {
+        nativeResolution = enabled;
+        nativeButton.setSelected(enabled);
+        nativeButton.setBackgroundTintList(enabled ? ColorStateList.valueOf(ACCENT) : null);
+        nativeButton.setTextColor(enabled ? BLACK : PAPER);
+        String label = enabled ? "Fit to window" : "Native resolution";
+        nativeButton.setContentDescription(label);
+        nativeButton.setTooltipText(label);
+        display.cancelGesture();
+        display.invalidate();
+    }
+
     @Override public void onBackPressed() {
         if (fullscreen) setFullscreen(false);
         else super.onBackPressed();
@@ -219,6 +244,7 @@ public final class ViewerActivity extends Activity {
 
     @Override protected void onSaveInstanceState(Bundle state) {
         state.putBoolean("fullscreen", fullscreen);
+        state.putBoolean("nativeResolution", nativeResolution);
         state.putBoolean("inputMarks", inputMarks.isChecked());
         super.onSaveInstanceState(state);
     }
@@ -323,30 +349,40 @@ public final class ViewerActivity extends Activity {
         save.setOnCheckedChangeListener((button, checked) ->
                 deviceName.setVisibility(checked ? View.VISIBLE : View.GONE));
         select.setOnClickListener(v -> {
-            PopupMenu menu = new PopupMenu(this, select);
             java.util.List<SavedDevices.Device> savedDevices = devices.list();
-            if (savedDevices.isEmpty()) menu.getMenu().add("No saved devices").setEnabled(false);
-            for (SavedDevices.Device device : savedDevices) {
-                menu.getMenu().add(device.label()).setOnMenuItemClickListener(item -> {
+            java.util.List<String> labels = new java.util.ArrayList<>();
+            for (SavedDevices.Device device : savedDevices) labels.add(device.label());
+            labels.add(savedDevices.isEmpty() ? "No saved devices" : "Clear saved devices…");
+            ArrayAdapter<String> rows = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, labels) {
+                @Override public boolean isEnabled(int position) { return !savedDevices.isEmpty(); }
+                @Override public boolean areAllItemsEnabled() { return !savedDevices.isEmpty(); }
+            };
+            View addressRow = (View) address.getParent();
+            ListPopupWindow menu = new ListPopupWindow(this);
+            menu.setAnchorView(addressRow);
+            menu.setWidth(addressRow.getWidth());
+            menu.setDropDownGravity(Gravity.LEFT);
+            menu.setVerticalOffset(0);
+            menu.setModal(true);
+            menu.setAdapter(rows);
+            menu.setOnItemClickListener((parent, row, index, id) -> {
+                menu.dismiss();
+                if (index < savedDevices.size()) {
+                    SavedDevices.Device device = savedDevices.get(index);
                     address.setText(device.address);
                     name.setText(device.name);
                     save.setChecked(false);
                     password.setText("");
                     setPasswordVisible(password, eye, false);
                     password.requestFocus();
-                    return true;
-                });
-            }
-            if (!savedDevices.isEmpty()) {
-                menu.getMenu().add("Clear saved devices…").setOnMenuItemClickListener(item -> {
+                } else if (!savedDevices.isEmpty()) {
                     confirmClearDevices(() -> {
                         address.setText("");
                         name.setText("");
                         save.setChecked(false);
                     });
-                    return true;
-                });
-            }
+                }
+            });
             menu.show();
         });
         AlertDialog dialog = new AlertDialog.Builder(this)
@@ -645,10 +681,18 @@ public final class ViewerActivity extends Activity {
             }
             frame.copyTo(bitmap::setPixels, frame != drawn);
             drawn = frame;
-            float scale = Math.min((float) getWidth() / frame.width, (float) getHeight() / frame.height);
-            float left = (getWidth() - frame.width * scale) / 2;
-            float top = (getHeight() - frame.height * scale) / 2;
-            destination.set(left, top, getWidth() - left, getHeight() - top);
+            float scale = nativeResolution ? 1f
+                    : Math.min((float) getWidth() / frame.width, (float) getHeight() / frame.height);
+            float width = frame.width * scale;
+            float height = frame.height * scale;
+            float left = (getWidth() - width) / 2;
+            float top = (getHeight() - height) / 2;
+            if (nativeResolution) {
+                left = (float) Math.floor(left);
+                top = (float) Math.floor(top);
+            }
+            destination.set(left, top, left + width, top + height);
+            paint.setFilterBitmap(!nativeResolution);
             canvas.drawBitmap(bitmap, null, destination, paint);
             if (markerPreview) {
                 drawMarker(canvas, destination.centerX(), destination.centerY());

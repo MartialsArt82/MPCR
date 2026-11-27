@@ -20,7 +20,7 @@ build_linux() {
     compile linux -classpath linux/lib/flatlaf.jar
     printf 'Main-Class: mpc.remote.LinuxViewer\nClass-Path: flatlaf.jar\nImplementation-Version: %s\n' \
         "$(awk '$1 == "Version:" {print $2}' linux/mpcr-screen.spec)" > build/linux/MANIFEST.MF
-    jar cfm dist/mpcr-screen-linux.jar build/linux/MANIFEST.MF -C build/linux/classes . -C common assets
+    jar cfm dist/mpcr-screen-linux.jar build/linux/MANIFEST.MF -C build/linux/classes . -C common assets -C linux obs.html
     cp linux/lib/flatlaf.jar dist/
     local portable=build/linux/mpcr-screen-linux
     mkdir -p "$portable"

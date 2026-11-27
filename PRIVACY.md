@@ -18,7 +18,9 @@ The project maintainer is Paul Weigl. Name, postal address, and contact details 
 
 MPCR uses app data solely for operating the viewer as described above. The app never uses it for newsletters, advertising, or other purposes. There is no newsletter signup in the app. The viewer does not operate a project server and does not send telemetry, advertising data, or crash reports to the project maintainer. Remote Screen authenticates the login. Video, audio, and control traffic is unencrypted. Use MPCR on a trusted network.
 
-Use **Clear saved devices** in the connection dialog’s saved-device dropdown to delete the saved list. On Android, that action is also available in **Settings → Privacy**, and you can delete all app data via the Android system settings. On Linux, the device list is saved in `${XDG_CONFIG_HOME:-$HOME/.config}/mpcr-screen/devices.properties`. The app requests only the `INTERNET` permission. It does not access the microphone, camera, or location.
+Use **Clear saved devices** in the connection dialog’s saved-device dropdown to delete the saved list. On Linux, **OBS Output** makes decoded video frames available to recording software on the same computer for as long as the output is on. It listens on the loopback interface and uses a per-session URL. The output contains only screen pixels. It closes on disconnect or when stopped.
+
+On Android, that action is also available in **Settings → Privacy**, and you can delete all app data via the Android system settings. On Linux, the device list is saved in `${XDG_CONFIG_HOME:-$HOME/.config}/mpcr-screen/devices.properties`. The app requests only the `INTERNET` permission. It does not access the microphone, camera, or location.
 
 ## GitHub and Ko-fi
 

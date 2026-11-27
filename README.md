@@ -16,10 +16,16 @@ You can find the signed Android APK, the Linux RPM for Fedora and Nobara, and th
 
 The protocol transmits video, audio, and control data without encryption. For more information, see the [Remote Screen documentation from inMusic](https://support.inmusicstore.com/en/support/solutions/articles/69000885284-mpc-3-10-1-enhancements-frequently-asked-questions).
 
+## Native resolution and OBS
+
+- **1:1**, beside **Fullscreen**, displays one MPC pixel per screen pixel. Choose it again to return to fit mode. If the window or display is smaller than the native image, it shows the center at its original scale.
+- On Linux, select **OBS Output** once the MPC image is visible. MPCR-Screen switches to a small preview and shows a local URL and the native dimensions. In OBS, add a **Browser Source**, paste the URL and set its width and height to the reported size. Set the OBS base canvas and output resolution to that size and leave the source transform at its original scale.
+- OBS receives the original decoded video pixels without an additional encoding or resize step in MPCR-Screen. The local output is video-only and excludes app controls, input marks, and audio. Select **Stop OBS** or disconnect the MPC to end the output.
+
 ## Source Code and Releases
 
 - [Build instructions for Android and Linux](BUILD.md)
 - [MIT License for project-owned components](LICENSE) and [Origin and third-party licenses](THIRD_PARTY.md)
 - [Privacy Notice](PRIVACY.md) and [Legal Notice](IMPRESSUM.md)
 
-The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpcr-screen-1.8-2.noarch.rpm`. After extracting the portable archive, launch it with `./mpcr-screen`. If you encounter startup issues on Linux, `mpcr-screen --diagnose` displays information about the Java runtime and display.
+The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpcr-screen-1.8.1-1.noarch.rpm`. After extracting the portable archive, launch it with `./mpcr-screen`. If you encounter startup issues on Linux, `mpcr-screen --diagnose` displays information about the Java runtime and display.

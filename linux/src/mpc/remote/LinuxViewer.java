@@ -17,6 +17,7 @@ import java.awt.GridBagLayout;
 import java.awt.HeadlessException;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.awt.datatransfer.StringSelection;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.Toolkit;
@@ -25,7 +26,9 @@ import java.awt.event.MouseEvent;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
@@ -100,6 +103,8 @@ public final class LinuxViewer extends JFrame {
     private final JCheckBox inputMarks = new JCheckBox("Marks");
     private final JCheckBox audio = new JCheckBox("Audio");
     private final JButton koFiButton = new JButton();
+    private final JToggleButton nativeButton = new JToggleButton("1:1");
+    private final JButton recordingButton = new JButton("OBS Output");
     private final JButton windowButton = new JButton("Window");
     private final Display display = new Display();
     private final JPanel root = new JPanel(new BorderLayout(0, 10));
@@ -110,6 +115,9 @@ public final class LinuxViewer extends JFrame {
     private RemoteSession session;
     private boolean interactive;
     private boolean soundAvailable;
+    private RecordingOutput recordingOutput;
+    private Dimension sizeBeforeRecording;
+    private int stateBeforeRecording;
 
     public static void main(String[] args) {
         if (args.length > 1 || (args.length == 1 && "--help".equals(args[0]))) {
@@ -219,6 +227,12 @@ public final class LinuxViewer extends JFrame {
         JButton fullscreen = new JButton("Fullscreen");
         fullscreen.addActionListener(e -> setFullscreen(true));
         options.add(fullscreen);
+        nativeButton.setToolTipText("Native resolution");
+        nativeButton.getAccessibleContext().setAccessibleName("Native resolution");
+        nativeButton.addActionListener(e -> setNativeResolution());
+        options.add(nativeButton);
+        recordingButton.addActionListener(e -> toggleRecordingOutput());
+        options.add(recordingButton);
         JButton privacy = new JButton("Privacy");
         privacy.addActionListener(e -> showPrivacy());
         options.add(privacy);
@@ -249,7 +263,7 @@ public final class LinuxViewer extends JFrame {
             @Override public void windowClosing(WindowEvent e) { disconnect("Disconnected"); }
         });
         updateControls();
-        setMinimumSize(new Dimension(700, 330));
+        setMinimumSize(new Dimension(800, 300));
         setSize(980, 600);
         setLocationByPlatform(true);
     }
@@ -388,7 +402,8 @@ public final class LinuxViewer extends JFrame {
         row.insets = new Insets(0, 0, 6, 0);
         panel.add(label("MPC Address", address), row);
         row.gridy++;
-        panel.add(inputRow(address, select), row);
+        JPanel addressRow = inputRow(address, select);
+        panel.add(addressRow, row);
         row.gridy++;
         panel.add(label("Remote Screen Password", password), row);
         row.gridy++;
@@ -436,7 +451,8 @@ public final class LinuxViewer extends JFrame {
                     }
                 });
             }
-            menu.show(select, 0, select.getHeight());
+            menu.setPopupSize(addressRow.getWidth(), menu.getPreferredSize().height);
+            menu.show(addressRow, 0, addressRow.getHeight());
         });
         cancel.addActionListener(e -> dialog.dispose());
         submit.addActionListener(e -> {
@@ -599,11 +615,13 @@ public final class LinuxViewer extends JFrame {
         connect.setText(active ? "Disconnect" : "Connect");
         control.setEnabled(active && interactive);
         if (!control.isEnabled()) control.setSelected(false);
+        recordingButton.setEnabled(active);
         audio.setEnabled(active && soundAvailable);
         if (!audio.isEnabled()) audio.setSelected(false);
     }
 
     private void disconnect(String reason) {
+        stopRecordingOutput();
         display.cancelGesture();
         if (session != null) session.close();
         session = null;
@@ -611,6 +629,82 @@ public final class LinuxViewer extends JFrame {
         soundAvailable = false;
         status.setText(reason);
         updateControls();
+        display.repaint();
+    }
+
+    private void setNativeResolution() {
+        display.cancelGesture();
+        ScreenBuffer frame = session == null ? null : session.latestScreen();
+        if (nativeButton.isSelected() && frame != null && fullScreenDevice == null
+                && (getExtendedState() & JFrame.MAXIMIZED_BOTH) == 0) {
+            java.awt.GraphicsConfiguration screen = getGraphicsConfiguration();
+            AffineTransform scale = screen.getDefaultTransform();
+            Rectangle available = screen.getBounds();
+            Insets reserved = Toolkit.getDefaultToolkit().getScreenInsets(screen);
+            available.width -= reserved.left + reserved.right;
+            available.height -= reserved.top + reserved.bottom;
+            int width = (int) Math.ceil(frame.width / scale.getScaleX()) + getWidth() - display.getWidth();
+            int height = (int) Math.ceil(frame.height / scale.getScaleY()) + getHeight() - display.getHeight();
+            setSize(Math.min(available.width, Math.max(width, getMinimumSize().width)),
+                    Math.min(available.height, Math.max(height, getMinimumSize().height)));
+        }
+        display.repaint();
+    }
+
+    private void toggleRecordingOutput() {
+        if (recordingOutput != null) {
+            stopRecordingOutput();
+            return;
+        }
+        RemoteSession source = session;
+        ScreenBuffer frame = source == null ? null : source.latestScreen();
+        if (frame == null) {
+            JOptionPane.showMessageDialog(this, "Wait until the MPC screen is visible.",
+                    "OBS Output", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        try {
+            recordingOutput = new RecordingOutput(source::latestScreen);
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Could not start the local video output.",
+                    "OBS Output", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        sizeBeforeRecording = getSize();
+        stateBeforeRecording = getExtendedState();
+        if ((stateBeforeRecording & JFrame.MAXIMIZED_BOTH) != 0) setExtendedState(JFrame.NORMAL);
+        setSize(Math.min(getWidth(), 880), Math.min(getHeight(), 330));
+        nativeButton.setEnabled(false);
+        recordingButton.setText("Stop OBS");
+        status.setToolTipText(recordingOutput.url());
+        display.repaint();
+
+        JTextField url = new JTextField(recordingOutput.url(), 28);
+        url.setEditable(false);
+        Object[] instructions = {"Add a Browser Source in OBS and paste this local URL.",
+                url, "Source size: " + frame.width + " × " + frame.height + " pixels.",
+                "Set the OBS canvas and output to that size for 1:1 recordings."};
+        Object[] buttons = {"Copy URL", "Close"};
+        int option = JOptionPane.showOptionDialog(this, instructions, "OBS Output", JOptionPane.DEFAULT_OPTION,
+                JOptionPane.INFORMATION_MESSAGE, null, buttons, buttons[0]);
+        if (option == 0) {
+            Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(url.getText()), null);
+        }
+    }
+
+    private void stopRecordingOutput() {
+        if (recordingOutput == null) return;
+        recordingOutput.close();
+        recordingOutput = null;
+        recordingButton.setText("OBS Output");
+        status.setToolTipText(null);
+        nativeButton.setEnabled(true);
+        if (sizeBeforeRecording != null && fullScreenDevice == null) {
+            setSize(sizeBeforeRecording);
+            setExtendedState(stateBeforeRecording);
+        }
+        sizeBeforeRecording = null;
         display.repaint();
     }
 
@@ -640,7 +734,7 @@ public final class LinuxViewer extends JFrame {
     }
 
     private final class Display extends JPanel {
-        private final Rectangle destination = new Rectangle();
+        private final Rectangle2D.Double destination = new Rectangle2D.Double();
         private final AtomicBoolean paintScheduled = new AtomicBoolean();
         private final Timer hideMarker = new Timer(MARK_LINGER_MS, e -> clearMarker());
         private final Ellipse2D.Float markerCircle = new Ellipse2D.Float();
@@ -704,7 +798,7 @@ public final class LinuxViewer extends JFrame {
             if (frame == null) {
                 bitmap = null;
                 drawn = null;
-                destination.setBounds(0, 0, 0, 0);
+                destination.setRect(0, 0, 0, 0);
                 if (markerPreview) {
                     Graphics2D canvas = (Graphics2D) g.create();
                     drawMarker(canvas, getWidth() / 2f, getHeight() / 2f);
@@ -719,18 +813,34 @@ public final class LinuxViewer extends JFrame {
             int[] pixels = ((DataBufferInt) bitmap.getRaster().getDataBuffer()).getData();
             frame.copyTo(pixels, changedScreen);
             drawn = frame;
-            double scale = Math.min((double) getWidth() / frame.width, (double) getHeight() / frame.height);
-            int width = (int) Math.round(frame.width * scale);
-            int height = (int) Math.round(frame.height * scale);
-            destination.setBounds((getWidth() - width) / 2, (getHeight() - height) / 2, width, height);
             Graphics2D canvas = (Graphics2D) g.create();
-            canvas.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-            canvas.drawImage(bitmap, destination.x, destination.y, width, height, null);
+            boolean nativeResolution = nativeButton.isSelected() && recordingOutput == null;
+            if (nativeResolution) {
+                AffineTransform transform = canvas.getTransform();
+                double sx = transform.getScaleX(), sy = transform.getScaleY();
+                double width = frame.width / sx, height = frame.height / sy;
+                double x = (Math.floor((getWidth() - width) * sx / 2 + transform.getTranslateX())
+                        - transform.getTranslateX()) / sx;
+                double y = (Math.floor((getHeight() - height) * sy / 2 + transform.getTranslateY())
+                        - transform.getTranslateY()) / sy;
+                destination.setRect(x, y, width, height);
+                AffineTransform placement = AffineTransform.getTranslateInstance(x, y);
+                placement.scale(1 / sx, 1 / sy);
+                canvas.drawImage(bitmap, placement, null);
+            } else {
+                double scale = Math.min((double) getWidth() / frame.width, (double) getHeight() / frame.height);
+                int width = (int) Math.round(frame.width * scale);
+                int height = (int) Math.round(frame.height * scale);
+                int x = (getWidth() - width) / 2, y = (getHeight() - height) / 2;
+                destination.setRect(x, y, width, height);
+                canvas.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+                canvas.drawImage(bitmap, x, y, width, height, null);
+            }
             if (markerPreview) {
                 drawMarker(canvas, (float) destination.getCenterX(), (float) destination.getCenterY());
             } else if (markerVisible) {
-                float x = destination.x + (lastX + .5f) * destination.width / frame.width;
-                float y = destination.y + (lastY + .5f) * destination.height / frame.height;
+                float x = (float) (destination.x + (lastX + .5) * destination.width / frame.width);
+                float y = (float) (destination.y + (lastY + .5) * destination.height / frame.height);
                 drawMarker(canvas, x, y);
             }
             canvas.dispose();
@@ -759,8 +869,8 @@ public final class LinuxViewer extends JFrame {
 
         private void sendPointer(int phase, MouseEvent e) {
             if (session == null || drawn == null || destination.isEmpty()) return;
-            int x = Math.max(0, Math.min(drawn.width - 1, (e.getX() - destination.x) * drawn.width / destination.width));
-            int y = Math.max(0, Math.min(drawn.height - 1, (e.getY() - destination.y) * drawn.height / destination.height));
+            int x = Math.max(0, Math.min(drawn.width - 1, (int) ((e.getX() - destination.x) * drawn.width / destination.width)));
+            int y = Math.max(0, Math.min(drawn.height - 1, (int) ((e.getY() - destination.y) * drawn.height / destination.height)));
             if (phase == 1 && x == lastX && y == lastY) return;
             session.pointer(phase, x, y);
             lastX = x;
