@@ -11,7 +11,7 @@ Check **Marks** to preview the red circle. With **Control** enabled, it highligh
 You can find the signed Android APK, the Linux RPM for Fedora and Nobara, and the portable Linux archive in the [GitHub Releases](https://github.com/MartialsArt82/MPCR/releases).
 
 1. On the MPC, enable **Preferences → Enhancements → Remote Screen**. Enable **Allow Remote Control** or **Share Audio** if needed.
-2. Connect the MPC and the viewer to the same trusted network. Enter the displayed MPC address and the Remote Screen password in the viewer.
+2. Connect the MPC and the viewer to the same trusted network. Enter the displayed MPC address and the Remote Screen password in the connection dialog. Use the eye button to reveal or hide the password. Check **Save Device** and enter a name to add the address to the dropdown for next time. Passwords are entered afresh for each connection.
 3. Select **Connect**. When in fullscreen mode, **Window** returns you to the normal view. On Linux, you can also press **F11** or **Esc**.
 
 The protocol transmits video, audio, and control data without encryption. For more information, see the [Remote Screen documentation from inMusic](https://support.inmusicstore.com/en/support/solutions/articles/69000885284-mpc-3-10-1-enhancements-frequently-asked-questions).
@@ -22,4 +22,4 @@ The protocol transmits video, audio, and control data without encryption. For mo
 - [MIT License for project-owned components](LICENSE) and [Origin and third-party licenses](THIRD_PARTY.md)
 - [Privacy Notice](PRIVACY.md) and [Legal Notice](IMPRESSUM.md)
 
-The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpcr-screen-1.7.1-1.noarch.rpm`. After extracting the portable archive, launch it with `./mpcr-screen`. If you encounter startup issues on Linux, `mpcr-screen --diagnose` displays information about the Java runtime and display.
+The Android version requires Android 8.0 or newer. On Fedora and Nobara, you can install the RPM package with `sudo dnf install ./mpcr-screen-1.8-2.noarch.rpm`. After extracting the portable archive, launch it with `./mpcr-screen`. If you encounter startup issues on Linux, `mpcr-screen --diagnose` displays information about the Java runtime and display.

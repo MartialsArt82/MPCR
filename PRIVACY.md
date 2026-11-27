@@ -10,7 +10,7 @@ The project maintainer is Paul Weigl. Name, postal address, and contact details 
 
 | Data | Purpose and Recipients | Retention |
 | --- | --- | --- |
-| Entered IP address or hostname and port | Establishing a connection to the selected MPC. For hostnames, the operating system may use its configured DNS service. | Android saves the last entry used for a connection attempt only if you have enabled **Remember MPC address**. This option is turned off on first launch and after updating from an earlier version. Linux does not save it in app settings. An invocation entered in a shell may remain in your shell history. |
+| Entered IP address or hostname and port | Establishing a connection to the selected MPC. For hostnames, the operating system may use its configured DNS service. | Android and Linux store the address and optional device name locally when you select **Save Device** and choose **Connect**. The saved list is retained until cleared or until the local app data is deleted. Android carries forward an address that you previously opted to remember. An invocation entered in a shell may remain in your shell history. |
 | Remote Screen password | The app processes the password for authentication and sends the verification data specified by the protocol to the MPC. | Processed in memory. The app does not store the password persistently or in the diagnostic log. |
 | Video, optional audio, and remote control | The MPC sends video data and, when audio is enabled, audio data. When control is enabled, mouse or touch events are sent to the MPC. | The app processes this data in memory for display, playback, and input. It does not create recordings. |
 | Support button visibility | Android remembers your chosen visibility setting locally. | Until changed or until local app data is deleted. |
@@ -18,7 +18,7 @@ The project maintainer is Paul Weigl. Name, postal address, and contact details 
 
 MPCR uses app data solely for operating the viewer as described above. The app never uses it for newsletters, advertising, or other purposes. There is no newsletter signup in the app. The viewer does not operate a project server and does not send telemetry, advertising data, or crash reports to the project maintainer. Remote Screen authenticates the login. Video, audio, and control traffic is unencrypted. Use MPCR on a trusted network.
 
-On Android, **Settings → Privacy → Forget address** deletes the saved entry and disables remembering it. Turning off **Remember MPC address** also deletes the entry. You can delete all app data via the Android system settings. The app requests only the `INTERNET` permission. It does not access the microphone, camera, or location.
+Use **Clear saved devices** in the connection dialog’s saved-device dropdown to delete the saved list. On Android, that action is also available in **Settings → Privacy**, and you can delete all app data via the Android system settings. On Linux, the device list is saved in `${XDG_CONFIG_HOME:-$HOME/.config}/mpcr-screen/devices.properties`. The app requests only the `INTERNET` permission. It does not access the microphone, camera, or location.
 
 ## GitHub and Ko-fi
 

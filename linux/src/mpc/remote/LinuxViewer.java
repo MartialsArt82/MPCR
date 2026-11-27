@@ -11,6 +11,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
+import java.awt.Dialog;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.HeadlessException;
@@ -26,12 +27,18 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
+import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Scanner;
@@ -45,18 +52,23 @@ import javax.sound.sampled.SourceDataLine;
 import javax.swing.BorderFactory;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
+import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JComponent;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JPopupMenu;
+import javax.swing.JMenuItem;
 import javax.swing.JRootPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -79,9 +91,10 @@ public final class LinuxViewer extends JFrame {
     private static final URI KO_FI = URI.create("https://ko-fi.com/paulweigl/tip");
     private static final URI IMPRINT = URI.create("https://www.paulweigl.de/impressum-1042906.html");
 
-    private final JTextField address = new JTextField(16);
-    private final JPasswordField password = new JPasswordField(13);
-    private final JLabel status = new JLabel("Enter MPC address and Remote Screen password.");
+    private final Path deviceFile = savedDeviceFile();
+    private SavedDevices devices = readDevices();
+    private String lastAddress;
+    private final JLabel status = new JLabel("Ready to connect");
     private final JButton connect = new JButton("Connect");
     private final JCheckBox control = new JCheckBox("Control");
     private final JCheckBox inputMarks = new JCheckBox("Marks");
@@ -90,7 +103,6 @@ public final class LinuxViewer extends JFrame {
     private final JButton windowButton = new JButton("Window");
     private final Display display = new Display();
     private final JPanel root = new JPanel(new BorderLayout(0, 10));
-    private final JPanel login;
     private final JPanel toolbar = new JPanel(new BorderLayout());
     private GraphicsDevice fullScreenDevice;
     private int windowState;
@@ -122,6 +134,7 @@ public final class LinuxViewer extends JFrame {
                 setupAppearance();
                 LinuxViewer viewer = new LinuxViewer(args.length == 0 ? "" : args[0]);
                 viewer.setVisible(true);
+                viewer.showLogin();
             } catch (RuntimeException | LinkageError | AWTError error) {
                 System.err.println("Could not open the viewer window.");
                 error.printStackTrace(System.err);
@@ -177,8 +190,6 @@ public final class LinuxViewer extends JFrame {
         root.setBorder(BorderFactory.createEmptyBorder(10, 12, 10, 12));
         root.setBackground(BACKGROUND);
         setContentPane(root);
-        login = loginPanel();
-        root.add(login, BorderLayout.NORTH);
         root.add(display, BorderLayout.CENTER);
 
         toolbar.setOpaque(false);
@@ -192,6 +203,9 @@ public final class LinuxViewer extends JFrame {
         koFiButton.addActionListener(e -> openKoFi());
         JPanel options = new JPanel(new FlowLayout(FlowLayout.TRAILING, 8, 0));
         options.setOpaque(false);
+        connect.setBackground(ACCENT);
+        connect.setForeground(BLACK);
+        options.add(connect);
         inputMarks.setToolTipText("Mark clicks and taps made in this viewer");
         inputMarks.addActionListener(e -> {
             if (inputMarks.isSelected()) display.previewMarker();
@@ -217,14 +231,10 @@ public final class LinuxViewer extends JFrame {
         bindFullscreen("F11", "toggleFullscreen", () -> setFullscreen(fullScreenDevice == null));
         bindFullscreen("ESCAPE", "exitFullscreen", () -> setFullscreen(false));
 
-        address.setText(host);
+        lastAddress = host;
         connect.addActionListener(e -> {
-            if (session == null) open();
+            if (session == null) showLogin();
             else disconnect("Disconnected");
-        });
-        address.addActionListener(e -> password.requestFocusInWindow());
-        password.addActionListener(e -> {
-            if (session == null) open();
         });
         control.addActionListener(e -> {
             if (!control.isSelected()) display.cancelGesture();
@@ -268,7 +278,6 @@ public final class LinuxViewer extends JFrame {
         }
         root.setBorder(BorderFactory.createEmptyBorder(enabled ? 0 : 10, enabled ? 0 : 12,
                 enabled ? 0 : 10, enabled ? 0 : 12));
-        login.setVisible(!enabled);
         toolbar.setVisible(!enabled);
         windowButton.setVisible(enabled);
         root.revalidate();
@@ -306,37 +315,225 @@ public final class LinuxViewer extends JFrame {
         }
     }
 
-    private JPanel loginPanel() {
+    private static Path savedDeviceFile() {
+        String configHome = System.getenv("XDG_CONFIG_HOME");
+        Path config = configHome == null ? Paths.get("") : Paths.get(configHome);
+        if (!config.isAbsolute()) config = Paths.get(System.getProperty("user.home"), ".config");
+        return config.resolve("mpcr-screen").resolve("devices.properties");
+    }
+
+    private SavedDevices readDevices() {
+        try {
+            return SavedDevices.read(new String(Files.readAllBytes(deviceFile), StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            return new SavedDevices();
+        }
+    }
+
+    private boolean storeDevices(JDialog dialog, SavedDevices updated) {
+        try {
+            Path directory = Files.createDirectories(deviceFile.getParent());
+            Path staged = Files.createTempFile(directory, "devices-", ".properties");
+            try {
+                Files.write(staged, updated.serialize().getBytes(StandardCharsets.UTF_8));
+                Files.move(staged, deviceFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } finally {
+                Files.deleteIfExists(staged);
+            }
+            devices = updated;
+            return true;
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(dialog, "Could not save the device list.",
+                    "Saved devices", JOptionPane.ERROR_MESSAGE);
+            return false;
+        }
+    }
+
+    private void showLogin() {
+        JDialog dialog = new JDialog(this, "Connect to MPC", Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
         JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
+        panel.setBackground(BACKGROUND);
+        dialog.setContentPane(panel);
+
+        JTextField address = new JTextField(lastAddress, 22);
+        JButton select = new JButton(new FolderIcon());
+        select.setToolTipText("Saved devices");
+        select.getAccessibleContext().setAccessibleName("Saved devices");
+        JPasswordField password = new JPasswordField(22);
+        char mask = password.getEchoChar();
+        JToggleButton eye = new JToggleButton(new EyeIcon(false));
+        eye.setSelectedIcon(new EyeIcon(true));
+        select.setPreferredSize(eye.getPreferredSize());
+        setPasswordVisible(password, eye, mask, false);
+        eye.addActionListener(e -> setPasswordVisible(password, eye, mask, eye.isSelected()));
+        JCheckBox save = new JCheckBox("Save Device");
+        JTextField name = new JTextField(22);
+        JPanel deviceName = new JPanel(new BorderLayout(0, 6));
+        deviceName.setOpaque(false);
+        deviceName.add(label("Device Name", name), BorderLayout.NORTH);
+        deviceName.add(inputRow(name, null), BorderLayout.CENTER);
+        deviceName.setVisible(false);
+        save.addItemListener(e -> {
+            deviceName.setVisible(save.isSelected());
+            dialog.pack();
+        });
+
+        GridBagConstraints row = new GridBagConstraints();
+        row.gridx = 0;
+        row.gridy = 0;
+        row.weightx = 1;
+        row.fill = GridBagConstraints.HORIZONTAL;
+        row.insets = new Insets(0, 0, 6, 0);
+        panel.add(label("MPC Address", address), row);
+        row.gridy++;
+        panel.add(inputRow(address, select), row);
+        row.gridy++;
+        panel.add(label("Remote Screen Password", password), row);
+        row.gridy++;
+        panel.add(inputRow(password, eye), row);
+        row.gridy++;
+        panel.add(save, row);
+        row.gridy++;
+        panel.add(deviceName, row);
+        row.gridy++;
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.TRAILING, 8, 0));
+        buttons.setOpaque(false);
+        JButton cancel = new JButton("Cancel");
+        JButton submit = new JButton("Connect");
+        submit.setBackground(ACCENT);
+        submit.setForeground(BLACK);
+        buttons.add(cancel);
+        buttons.add(submit);
+        panel.add(buttons, row);
+
+        select.addActionListener(e -> {
+            JPopupMenu menu = new JPopupMenu();
+            java.util.List<SavedDevices.Device> saved = devices.list();
+            if (saved.isEmpty()) menu.add(new JMenuItem("No saved devices")).setEnabled(false);
+            for (SavedDevices.Device device : saved) {
+                menu.add(device.label()).addActionListener(choice -> {
+                    address.setText(device.address);
+                    name.setText(device.name);
+                    save.setSelected(false);
+                    password.setText("");
+                    setPasswordVisible(password, eye, mask, false);
+                    password.requestFocusInWindow();
+                });
+            }
+            if (!saved.isEmpty()) {
+                menu.addSeparator();
+                menu.add("Clear saved devices…").addActionListener(choice -> {
+                    int confirm = JOptionPane.showConfirmDialog(dialog,
+                            "Remove all device names and addresses saved on this computer?",
+                            "Clear saved devices?", JOptionPane.OK_CANCEL_OPTION);
+                    if (confirm == JOptionPane.OK_OPTION && storeDevices(dialog, new SavedDevices())) {
+                        lastAddress = "";
+                        address.setText("");
+                        name.setText("");
+                        save.setSelected(false);
+                    }
+                });
+            }
+            menu.show(select, 0, select.getHeight());
+        });
+        cancel.addActionListener(e -> dialog.dispose());
+        submit.addActionListener(e -> {
+            String enteredAddress = address.getText().trim();
+            Endpoint endpoint;
+            try {
+                endpoint = Endpoint.parse(enteredAddress);
+            } catch (IllegalArgumentException error) {
+                JOptionPane.showMessageDialog(dialog, error.getMessage(), "MPC Address", JOptionPane.WARNING_MESSAGE);
+                address.requestFocusInWindow();
+                return;
+            }
+            if (save.isSelected() && !storeDevices(dialog, devices.with(enteredAddress, name.getText()))) return;
+            lastAddress = enteredAddress;
+            char[] secret = password.getPassword();
+            try {
+                password.setText("");
+                dialog.dispose();
+                open(endpoint, new String(secret));
+            } finally {
+                Arrays.fill(secret, '\0');
+            }
+        });
+        address.addActionListener(e -> password.requestFocusInWindow());
+        dialog.getRootPane().setDefaultButton(submit);
+        dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(), KeyStroke.getKeyStroke("ESCAPE"),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+        password.setText("");
+    }
+
+    private static JPanel inputRow(JTextField field, JComponent accessory) {
+        JPanel panel = new JPanel(new BorderLayout(6, 0));
         panel.setOpaque(false);
-        panel.setBorder(BorderFactory.createEmptyBorder(6, 4, 4, 4));
-        GridBagConstraints cell = new GridBagConstraints();
-        cell.anchor = GridBagConstraints.LINE_START;
-        cell.fill = GridBagConstraints.HORIZONTAL;
-        cell.weightx = 1;
-        cell.insets = new Insets(0, 0, 5, 12);
-        cell.gridx = 0;
-        cell.gridy = 0;
-        panel.add(label("MPC Address", address), cell);
-        cell.gridx = 1;
-        panel.add(label("Remote Screen Password", password), cell);
-        cell.gridy = 1;
-        cell.gridx = 0;
-        cell.insets.bottom = 0;
-        styleInput(address);
-        panel.add(address, cell);
-        cell.gridx = 1;
-        styleInput(password);
-        panel.add(password, cell);
-        cell.gridx = 2;
-        cell.weightx = 0;
-        cell.insets.right = 0;
-        connect.setBackground(ACCENT);
-        connect.setForeground(BLACK);
-        connect.setFont(connect.getFont().deriveFont(Font.BOLD, 16f));
-        connect.setMargin(new Insets(9, 16, 9, 16));
-        panel.add(connect, cell);
+        styleInput(field);
+        panel.add(field, BorderLayout.CENTER);
+        if (accessory != null) panel.add(accessory, BorderLayout.EAST);
         return panel;
+    }
+
+    private static void setPasswordVisible(JPasswordField password, JToggleButton eye, char mask, boolean visible) {
+        password.setEchoChar(visible ? (char) 0 : mask);
+        eye.setSelected(visible);
+        String label = visible ? "Hide password" : "Show password";
+        eye.setToolTipText(label);
+        eye.getAccessibleContext().setAccessibleName(label);
+    }
+
+    private static final class FolderIcon implements Icon {
+        @Override public int getIconWidth() { return 24; }
+        @Override public int getIconHeight() { return 24; }
+
+        @Override public void paintIcon(java.awt.Component component, Graphics g, int x, int y) {
+            Graphics2D canvas = (Graphics2D) g.create();
+            canvas.translate(x, y);
+            canvas.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            canvas.setColor(PAPER);
+            canvas.setStroke(new java.awt.BasicStroke(1.8f, java.awt.BasicStroke.CAP_ROUND,
+                    java.awt.BasicStroke.JOIN_ROUND));
+            Path2D folder = new Path2D.Float();
+            folder.moveTo(3, 5);
+            folder.lineTo(9, 5);
+            folder.lineTo(11, 7);
+            folder.lineTo(21, 7);
+            folder.lineTo(21, 19);
+            folder.lineTo(3, 19);
+            folder.closePath();
+            canvas.draw(folder);
+            canvas.dispose();
+        }
+    }
+
+    private static final class EyeIcon implements Icon {
+        private final boolean visible;
+
+        EyeIcon(boolean visible) { this.visible = visible; }
+
+        @Override public int getIconWidth() { return 24; }
+        @Override public int getIconHeight() { return 24; }
+
+        @Override public void paintIcon(java.awt.Component component, Graphics g, int x, int y) {
+            Graphics2D canvas = (Graphics2D) g.create();
+            canvas.translate(x, y);
+            canvas.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            canvas.setColor(PAPER);
+            canvas.setStroke(new java.awt.BasicStroke(1.8f));
+            Path2D eye = new Path2D.Float();
+            eye.moveTo(2, 12);
+            eye.quadTo(12, -1, 22, 12);
+            eye.quadTo(12, 25, 2, 12);
+            canvas.draw(eye);
+            canvas.drawOval(9, 9, 6, 6);
+            if (visible) canvas.drawLine(4, 4, 20, 20);
+            canvas.dispose();
+        }
     }
 
     private static void styleInput(JTextField input) {
@@ -355,14 +552,7 @@ public final class LinuxViewer extends JFrame {
         return label;
     }
 
-    private void open() {
-        Endpoint endpoint;
-        try {
-            endpoint = Endpoint.parse(address.getText());
-        } catch (IllegalArgumentException e) {
-            status.setText(e.getMessage());
-            return;
-        }
+    private void open(Endpoint endpoint, String secret) {
         class ConnectionListener implements RemoteSession.Listener {
             RemoteSession owner;
 
@@ -398,13 +588,7 @@ public final class LinuxViewer extends JFrame {
                         LinuxViewer::decodeJpeg, new PcmPlayer(LinuxViewer::openAudio));
                 session = owner;
                 updateControls();
-                char[] secret = password.getPassword();
-                try {
-                    owner.start(new String(secret));
-                } finally {
-                    Arrays.fill(secret, '\0');
-                    password.setText("");
-                }
+                owner.start(secret);
             }
         }
         new ConnectionListener().launch();
@@ -413,8 +597,6 @@ public final class LinuxViewer extends JFrame {
     private void updateControls() {
         boolean active = session != null;
         connect.setText(active ? "Disconnect" : "Connect");
-        address.setEnabled(!active);
-        password.setEnabled(!active);
         control.setEnabled(active && interactive);
         if (!control.isEnabled()) control.setSelected(false);
         audio.setEnabled(active && soundAvailable);

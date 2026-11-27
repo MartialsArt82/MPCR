@@ -23,6 +23,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
+import android.text.method.PasswordTransformationMethod;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -32,13 +33,13 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -61,10 +62,10 @@ public final class ViewerActivity extends Activity {
 
     private LinearLayout content;
     private LinearLayout header;
-    private ScrollView fields;
     private LinearLayout actions;
-    private EditText address;
-    private EditText password;
+    private SavedDevices devices;
+    private String lastAddress = "";
+    private AlertDialog loginDialog;
     private TextView status;
     private Button connect;
     private Button fullscreenButton;
@@ -77,7 +78,6 @@ public final class ViewerActivity extends Activity {
     private boolean interactive;
     private boolean soundAvailable;
     private boolean fullscreen;
-    private boolean screenReady;
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -142,27 +142,7 @@ public final class ViewerActivity extends Activity {
         display = new Display(this);
         viewer.addView(display, new FrameLayout.LayoutParams(-1, -1));
 
-        fields = new ScrollView(this);
-        fields.setBackgroundColor(BACKGROUND);
-        viewer.addView(fields, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
-        LinearLayout login = new LinearLayout(this);
-        login.setOrientation(LinearLayout.VERTICAL);
-        login.setPadding(dp(4), dp(8), dp(4), dp(16));
-        fields.addView(login);
-        address = field(login, "MPC Address", "192.168.1.50",
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI, EditorInfo.IME_ACTION_NEXT);
-        address.setSaveEnabled(false);
-        SharedPreferences preferences = getPreferences(MODE_PRIVATE);
-        if (preferences.getBoolean("rememberAddress", false)) {
-            address.setText(preferences.getString("address", ""));
-        } else if (preferences.contains("address")) {
-            preferences.edit().remove("address").apply();
-        }
-        password = field(login, "Remote Screen Password", null,
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, EditorInfo.IME_ACTION_DONE);
-        password.setSaveEnabled(false);
-        password.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
-        address.setNextFocusForwardId(password.getId());
+        loadDevices();
 
         actions = new LinearLayout(this);
         actions.setGravity(Gravity.CENTER_VERTICAL);
@@ -194,7 +174,7 @@ public final class ViewerActivity extends Activity {
         root.addView(fullscreenButton, buttonPosition);
         fullscreenButton.setOnClickListener(v -> setFullscreen(!fullscreen));
         connect.setOnClickListener(v -> {
-            if (session == null) open();
+            if (session == null) showLogin();
             else disconnect("Disconnected");
         });
         control.setOnCheckedChangeListener((button, on) -> {
@@ -203,20 +183,15 @@ public final class ViewerActivity extends Activity {
         audio.setOnCheckedChangeListener((button, on) -> {
             if (session != null && soundAvailable) session.setAudio(on);
         });
-        password.setOnEditorActionListener((v, action, event) -> {
-            if (session != null) return false;
-            open();
-            return true;
-        });
         updateControls();
         setFullscreen(saved != null && saved.getBoolean("fullscreen"));
+        if (!fullscreen) showLogin();
     }
 
     private void setFullscreen(boolean enabled) {
         fullscreen = enabled;
         display.cancelGesture();
         header.setVisibility(enabled ? View.GONE : View.VISIBLE);
-        fields.setVisibility(enabled || screenReady ? View.GONE : View.VISIBLE);
         actions.setVisibility(enabled ? View.GONE : View.VISIBLE);
         content.setPadding(enabled ? 0 : dp(12), enabled ? 0 : dp(6),
                 enabled ? 0 : dp(12), enabled ? 0 : dp(6));
@@ -248,10 +223,11 @@ public final class ViewerActivity extends Activity {
         super.onSaveInstanceState(state);
     }
 
-    private EditText field(LinearLayout login, String name, String hint, int type, int imeAction) {
+    private EditText field(LinearLayout login, String name, String hint, int type, int imeAction, View accessory) {
         EditText field = new EditText(this);
         field.setId(View.generateViewId());
         field.setSingleLine(true);
+        field.setSaveEnabled(false);
         field.setInputType(type);
         field.setTypeface(getResources().getFont(R.font.barlow_regular));
         field.setImeOptions(imeAction | EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);
@@ -275,9 +251,13 @@ public final class ViewerActivity extends Activity {
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(-1, -2);
         labelParams.bottomMargin = dp(5);
         login.addView(label, labelParams);
-        LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(-1, -2);
-        if (imeAction == EditorInfo.IME_ACTION_NEXT) fieldParams.bottomMargin = dp(14);
-        login.addView(field, fieldParams);
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(field, new LinearLayout.LayoutParams(0, -2, 1));
+        if (accessory != null) row.addView(accessory, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
+        rowParams.bottomMargin = dp(10);
+        login.addView(row, rowParams);
         return field;
     }
 
@@ -286,26 +266,167 @@ public final class ViewerActivity extends Activity {
                 ? View.VISIBLE : View.GONE);
     }
 
+    private void loadDevices() {
+        SharedPreferences preferences = getPreferences(MODE_PRIVATE);
+        devices = SavedDevices.read(preferences.getString("savedDevices", ""));
+        if (preferences.getBoolean("rememberAddress", false)) {
+            String legacy = preferences.getString("address", "").trim();
+            if (!legacy.isEmpty()) {
+                devices = devices.with(legacy, "");
+                lastAddress = legacy;
+            }
+        }
+        if (preferences.contains("rememberAddress") || preferences.contains("address")) {
+            preferences.edit().putString("savedDevices", devices.serialize())
+                    .remove("rememberAddress").remove("address").apply();
+        }
+    }
+
+    private void storeDevices(SavedDevices updated) {
+        devices = updated;
+        getPreferences(MODE_PRIVATE).edit().putString("savedDevices", updated.serialize()).apply();
+    }
+
+    private void showLogin() {
+        if (loginDialog != null || session != null || isFinishing()) return;
+
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout login = new LinearLayout(this);
+        login.setOrientation(LinearLayout.VERTICAL);
+        login.setPadding(dp(22), dp(10), dp(22), dp(6));
+        scroll.addView(login);
+
+        ImageButton select = loginIcon(R.drawable.folder, "Saved devices");
+        EditText address = field(login, "MPC Address", "192.168.1.50",
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI,
+                EditorInfo.IME_ACTION_NEXT, select);
+        address.setText(lastAddress);
+
+        ImageButton eye = loginIcon(R.drawable.eye, "Show password");
+        EditText password = field(login, "Remote Screen Password", null,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                EditorInfo.IME_ACTION_DONE, eye);
+        password.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);
+        address.setNextFocusForwardId(password.getId());
+        setPasswordVisible(password, eye, false);
+        eye.setOnClickListener(v -> setPasswordVisible(password, eye, password.getTransformationMethod() != null));
+
+        CheckBox save = new CheckBox(this);
+        save.setText("Save Device");
+        login.addView(save, new LinearLayout.LayoutParams(-1, -2));
+        LinearLayout deviceName = new LinearLayout(this);
+        deviceName.setOrientation(LinearLayout.VERTICAL);
+        login.addView(deviceName, new LinearLayout.LayoutParams(-1, -2));
+        EditText name = field(deviceName, "Device Name", null, InputType.TYPE_CLASS_TEXT,
+                EditorInfo.IME_ACTION_DONE, null);
+        deviceName.setVisibility(View.GONE);
+        save.setOnCheckedChangeListener((button, checked) ->
+                deviceName.setVisibility(checked ? View.VISIBLE : View.GONE));
+        select.setOnClickListener(v -> {
+            PopupMenu menu = new PopupMenu(this, select);
+            java.util.List<SavedDevices.Device> savedDevices = devices.list();
+            if (savedDevices.isEmpty()) menu.getMenu().add("No saved devices").setEnabled(false);
+            for (SavedDevices.Device device : savedDevices) {
+                menu.getMenu().add(device.label()).setOnMenuItemClickListener(item -> {
+                    address.setText(device.address);
+                    name.setText(device.name);
+                    save.setChecked(false);
+                    password.setText("");
+                    setPasswordVisible(password, eye, false);
+                    password.requestFocus();
+                    return true;
+                });
+            }
+            if (!savedDevices.isEmpty()) {
+                menu.getMenu().add("Clear saved devices…").setOnMenuItemClickListener(item -> {
+                    confirmClearDevices(() -> {
+                        address.setText("");
+                        name.setText("");
+                        save.setChecked(false);
+                    });
+                    return true;
+                });
+            }
+            menu.show();
+        });
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Connect to MPC").setView(scroll)
+                .setNegativeButton("Cancel", null).setPositiveButton("Connect", null).create();
+        loginDialog = dialog;
+        dialog.setOnDismissListener(dismissed -> {
+            password.setText("");
+            loginDialog = null;
+        });
+        dialog.show();
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        Runnable submit = () -> {
+            String enteredAddress = address.getText().toString().trim();
+            Endpoint endpoint;
+            try {
+                endpoint = Endpoint.parse(enteredAddress);
+            } catch (IllegalArgumentException e) {
+                address.setError(e.getMessage());
+                address.requestFocus();
+                return;
+            }
+            lastAddress = enteredAddress;
+            if (save.isChecked()) storeDevices(devices.with(enteredAddress, name.getText().toString()));
+            String secret = password.getText().toString();
+            dialog.dismiss();
+            open(endpoint, secret);
+        };
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> submit.run());
+        password.setOnEditorActionListener((v, action, event) -> {
+            submit.run();
+            return true;
+        });
+        address.requestFocus();
+    }
+
+    private ImageButton loginIcon(int icon, String label) {
+        ImageButton button = new ImageButton(this);
+        TypedValue selectable = new TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, selectable, true);
+        button.setBackgroundResource(selectable.resourceId);
+        button.setScaleType(ImageButton.ScaleType.CENTER);
+        button.setImageResource(icon);
+        button.setContentDescription(label);
+        button.setTooltipText(label);
+        return button;
+    }
+
+    private void setPasswordVisible(EditText password, ImageButton eye, boolean visible) {
+        int start = password.getSelectionStart();
+        int end = password.getSelectionEnd();
+        password.setTransformationMethod(visible ? null : PasswordTransformationMethod.getInstance());
+        if (start >= 0 && end >= 0) password.setSelection(start, end);
+        eye.setImageResource(visible ? R.drawable.eye_off : R.drawable.eye);
+        eye.setContentDescription(visible ? "Hide password" : "Show password");
+        eye.setTooltipText(eye.getContentDescription());
+    }
+
+    private void confirmClearDevices(Runnable cleared) {
+        new AlertDialog.Builder(this).setTitle("Clear saved devices?")
+                .setMessage("Remove the device names and addresses saved on this screen.")
+                .setNegativeButton("Cancel", null).setPositiveButton("Clear", (dialog, which) -> {
+                    storeDevices(new SavedDevices());
+                    lastAddress = "";
+                    cleared.run();
+                }).show();
+    }
+
     private void openSettings() {
         SharedPreferences preferences = getPreferences(MODE_PRIVATE);
-        new AlertDialog.Builder(this)
-                .setTitle("Settings")
-                .setMultiChoiceItems(new String[] {"Show support button", "Remember MPC address"},
-                        new boolean[] {preferences.getBoolean("showKoFi", true),
-                                preferences.getBoolean("rememberAddress", false)}, (dialog, item, checked) -> {
-                            if (item == 0) {
-                                preferences.edit().putBoolean("showKoFi", checked).apply();
-                                updateKoFiVisibility();
-                            } else {
-                                SharedPreferences.Editor editor = preferences.edit().putBoolean("rememberAddress", checked);
-                                if (!checked) editor.remove("address");
-                                editor.apply();
-                            }
+        new AlertDialog.Builder(this).setTitle("Settings")
+                .setMultiChoiceItems(new String[] {"Show support button"},
+                        new boolean[] {preferences.getBoolean("showKoFi", true)}, (dialog, item, checked) -> {
+                            preferences.edit().putBoolean("showKoFi", checked).apply();
+                            updateKoFiVisibility();
                         })
                 .setNeutralButton("Open Ko-fi", (dialog, which) -> openKoFi())
                 .setNegativeButton("Privacy", (dialog, which) -> showPrivacy())
-                .setPositiveButton("Done", null)
-                .show();
+                .setPositiveButton("Done", null).show();
     }
 
     private void showPrivacy() {
@@ -313,11 +434,8 @@ public final class ViewerActivity extends Activity {
             new AlertDialog.Builder(this)
                     .setTitle("Privacy")
                     .setMessage(input.useDelimiter("\\A").next())
-                    .setNeutralButton("Forget address", (dialog, which) -> {
-                        getPreferences(MODE_PRIVATE).edit().remove("address")
-                                .putBoolean("rememberAddress", false).apply();
-                        if (session == null) address.setText("");
-                    })
+                    .setNeutralButton("Clear saved devices", (dialog, which) ->
+                            confirmClearDevices(() -> {}))
                     .setNegativeButton("Legal Notice", (dialog, which) ->
                             openBrowser("https://www.paulweigl.de/impressum-1042906.html"))
                     .setPositiveButton("Done", null)
@@ -358,26 +476,12 @@ public final class ViewerActivity extends Activity {
         return toggle;
     }
 
-    private void open() {
-        Endpoint endpoint;
-        try {
-            endpoint = Endpoint.parse(address.getText().toString());
-        } catch (IllegalArgumentException e) {
-            status.setText(e.getMessage());
-            return;
-        }
-        InputMethodManager keyboard = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-        keyboard.hideSoftInputFromWindow(password.getWindowToken(), 0);
-        SharedPreferences preferences = getPreferences(MODE_PRIVATE);
-        if (preferences.getBoolean("rememberAddress", false)) {
-            preferences.edit().putString("address", address.getText().toString().trim()).apply();
-        }
+    private void open(Endpoint endpoint, String secret) {
         ConnectionListener listener = new ConnectionListener();
         session = new RemoteSession(endpoint.host, endpoint.port, listener,
                 ViewerActivity::decodeJpeg, new PcmPlayer(ViewerActivity::openAudio));
         listener.owner = session;
-        session.start(password.getText().toString());
-        password.setText("");
+        session.start(secret);
         updateControls();
     }
 
@@ -394,8 +498,6 @@ public final class ViewerActivity extends Activity {
             runOnUiThread(() -> {
                 if (session != owner) return;
                 display.cancelGesture();
-                screenReady = true;
-                fields.setVisibility(View.GONE);
                 interactive = (screen.controls & 3) != 0;
                 soundAvailable = screen.audio;
                 updateControls();
@@ -417,8 +519,6 @@ public final class ViewerActivity extends Activity {
     private void updateControls() {
         boolean active = session != null;
         connect.setText(active ? "Disconnect" : "Connect");
-        address.setEnabled(!active);
-        password.setEnabled(!active);
         control.setEnabled(active && interactive);
         if (!control.isEnabled()) control.setChecked(false);
         audio.setEnabled(active && soundAvailable);
@@ -434,7 +534,6 @@ public final class ViewerActivity extends Activity {
         if (previous != null) previous.close();
         interactive = false;
         soundAvailable = false;
-        screenReady = false;
         setFullscreen(false);
         status.setText(reason);
         updateControls();
